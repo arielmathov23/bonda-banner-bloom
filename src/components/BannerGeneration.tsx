@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Wand2, Download, RefreshCw, Edit3, Copy, Type, Palette, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,41 +46,8 @@ const BannerGeneration = () => {
   const [isInArtboard, setIsInArtboard] = useState(false);
   const [savedBanners, setSavedBanners] = useState<GeneratedBanner[]>([]);
 
-  // Mock partner data with branding information
-  const partners: Partner[] = [
-    {
-      id: '1',
-      name: 'TechCorp Solutions',
-      logo: 'https://via.placeholder.com/120x60/4A90E2/FFFFFF?text=TechCorp',
-      brandColors: ['#4A90E2', '#FFFFFF', '#2C3E50'],
-      industry: 'Technology',
-      brandingStyle: 'Modern & Professional'
-    },
-    {
-      id: '2',
-      name: 'Global Finance Ltd',
-      logo: 'https://via.placeholder.com/120x60/50E3C2/FFFFFF?text=Finance',
-      brandColors: ['#50E3C2', '#2C3E50', '#FFFFFF'],
-      industry: 'Finance',
-      brandingStyle: 'Corporate & Trustworthy'
-    },
-    {
-      id: '3',
-      name: 'HealthFirst Medical',
-      logo: 'https://via.placeholder.com/120x60/E74C3C/FFFFFF?text=Health',
-      brandColors: ['#E74C3C', '#FFFFFF', '#34495E'],
-      industry: 'Healthcare',
-      brandingStyle: 'Clean & Caring'
-    },
-    {
-      id: '4',
-      name: 'EduTech Innovations',
-      logo: 'https://via.placeholder.com/120x60/9B59B6/FFFFFF?text=EduTech',
-      brandColors: ['#9B59B6', '#3498DB', '#FFFFFF'],
-      industry: 'Education',
-      brandingStyle: 'Creative & Inspiring'
-    }
-  ];
+  // Start with empty partners array - user will add partners manually
+  const partners: Partner[] = [];
 
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
 
@@ -344,21 +310,29 @@ const BannerGeneration = () => {
           <div className="space-y-6">
             <div>
               <Label htmlFor="partner">Select Partner *</Label>
-              <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500">
-                  <SelectValue placeholder="Choose a partner from your database" />
-                </SelectTrigger>
-                <SelectContent>
-                  {partners.map((partner) => (
-                    <SelectItem key={partner.id} value={partner.id}>
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-4 rounded" style={{ backgroundColor: partner.brandColors[0] }}></div>
-                        <span>{partner.name}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {partners.length === 0 ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-2">
+                  <p className="text-yellow-800 text-sm">
+                    No partners available. Please create a partner first in the Partners tab.
+                  </p>
+                </div>
+              ) : (
+                <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+                  <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500">
+                    <SelectValue placeholder="Choose a partner from your database" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partners.map((partner) => (
+                      <SelectItem key={partner.id} value={partner.id}>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-4 rounded" style={{ backgroundColor: partner.brandColors[0] }}></div>
+                          <span>{partner.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {selectedPartner && (
@@ -412,7 +386,6 @@ const BannerGeneration = () => {
         </CardContent>
       </Card>
 
-      {/* Generated Options (Reve Art Style) */}
       {generatedOptions.length > 0 && (
         <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
@@ -455,7 +428,6 @@ const BannerGeneration = () => {
         </Card>
       )}
 
-      {/* Saved Banners */}
       {savedBanners.length > 0 && (
         <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>

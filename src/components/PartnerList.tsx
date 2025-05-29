@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Search, MoreHorizontal, MapPin, Globe, Mail } from 'lucide-react';
+import { Search, MoreHorizontal, MapPin, Globe, Mail, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -21,49 +21,8 @@ interface Partner {
 const PartnerList = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Mock data
-  const partners: Partner[] = [
-    {
-      id: '1',
-      name: 'TechCorp Solutions',
-      region: 'North America',
-      industry: 'Technology',
-      status: 'active',
-      email: 'contact@techcorp.com',
-      website: 'www.techcorp.com',
-      joinDate: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Global Finance Ltd',
-      region: 'Europe',
-      industry: 'Finance',
-      status: 'active',
-      email: 'info@globalfinance.com',
-      website: 'www.globalfinance.com',
-      joinDate: '2024-02-20'
-    },
-    {
-      id: '3',
-      name: 'HealthFirst Medical',
-      region: 'Asia Pacific',
-      industry: 'Healthcare',
-      status: 'pending',
-      email: 'admin@healthfirst.com',
-      website: 'www.healthfirst.com',
-      joinDate: '2024-03-10'
-    },
-    {
-      id: '4',
-      name: 'EduTech Innovations',
-      region: 'North America',
-      industry: 'Education',
-      status: 'active',
-      email: 'hello@edutech.com',
-      website: 'www.edutech.com',
-      joinDate: '2024-02-28'
-    }
-  ];
+  // Start with empty partners array - user will add partners manually
+  const partners: Partner[] = [];
 
   const filteredPartners = partners.filter(partner =>
     partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -106,7 +65,16 @@ const PartnerList = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {filteredPartners.length === 0 ? (
+          {partners.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No partners yet</h3>
+              <p className="text-gray-500 mb-4">Create your first partner to get started with banner generation</p>
+              <p className="text-sm text-gray-400">Use the form on the left to add a new partner</p>
+            </div>
+          ) : filteredPartners.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-gray-500">No partners found</p>
             </div>
