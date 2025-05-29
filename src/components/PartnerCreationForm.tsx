@@ -1,69 +1,101 @@
 
 import React, { useState } from 'react';
-import { Upload, Check, AlertCircle } from 'lucide-react';
+import { Upload, Check, AlertCircle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 
 const PartnerCreationForm = () => {
   const [formData, setFormData] = useState({
     partnerName: '',
-    region: '',
-    industry: '',
+    regions: [] as string[],
+    partnerURL: '',
+    benefitsDescription: '',
     description: '',
-    contactEmail: '',
-    website: '',
   });
   
+  const [logo, setLogo] = useState<File | null>(null);
   const [brandManual, setBrandManual] = useState<File | null>(null);
+  const [referenceBanners, setReferenceBanners] = useState<File[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const regions = [
-    'North America',
-    'Europe',
-    'Asia Pacific',
-    'Latin America',
-    'Middle East & Africa'
-  ];
-
-  const industries = [
-    'Technology',
-    'Finance',
-    'Healthcare',
-    'Retail',
-    'Education',
-    'Entertainment',
-    'Food & Beverage',
-    'Travel & Tourism'
+    { id: 'argentina-uruguay', label: 'Argentina & Uruguay', description: 'Tone: Local, familiar' },
+    { id: 'latam', label: 'LATAM', description: 'Tone: Spanish LATAM neutral' }
   ];
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRegionChange = (regionId: string, checked: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      regions: checked 
+        ? [...prev.regions, regionId]
+        : prev.regions.filter(r => r !== regionId)
+    }));
+  };
+
+  const downloadBrandManualTemplate = () => {
+    const csvContent = "Field,Value,Instructions\nMain Color,#FFFFFF,Primary brand color (hex format)\nSecondary Color,#000000,Secondary brand color (hex format)\nAccent Color 1,#CCCCCC,Additional accent color if needed\nAccent Color 2,#999999,Additional accent color if needed\nFont Primary,Arial,Primary font family\nFont Secondary,Helvetica,Secondary font family";
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'brand_manual_template.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Template downloaded",
+      description: "Brand manual template has been downloaded successfully",
+    });
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file type
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-      if (!allowedTypes.includes(file.type)) {
+      if (!file.type.includes('png')) {
         toast({
           title: "Invalid file type",
-          description: "Please upload a PDF or image file (JPEG, PNG)",
+          description: "Please upload a PNG file for the logo",
           variant: "destructive",
         });
         return;
       }
       
-      // Validate file size (max 10MB)
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > 5 * 1024 * 1024) {
         toast({
           title: "File too large",
-          description: "Please upload a file smaller than 10MB",
+          description: "Please upload a logo smaller than 5MB",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setLogo(file);
+      toast({
+        title: "Logo uploaded successfully",
+        description: `${file.name} has been selected`,
+      });
+    }
+  };
+
+  const handleBrandManualUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.includes('csv')) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload a CSV file for the brand manual",
           variant: "destructive",
         });
         return;
@@ -71,19 +103,46 @@ const PartnerCreationForm = () => {
       
       setBrandManual(file);
       toast({
-        title: "File uploaded successfully",
-        description: `${file.name} has been selected for upload`,
+        title: "Brand manual uploaded successfully",
+        description: `${file.name} has been selected`,
       });
     }
+  };
+
+  const handleReferenceBannersUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length > 0) {
+      const validFiles = files.filter(file => 
+        file.type.includes('image/') && file.size <= 10 * 1024 * 1024
+      );
+      
+      if (validFiles.length !== files.length) {
+        toast({
+          title: "Some files were rejected",
+          description: "Only image files under 10MB are allowed",
+          variant: "destructive",
+        });
+      }
+      
+      setReferenceBanners(prev => [...prev, ...validFiles]);
+      toast({
+        title: "Reference banners uploaded",
+        description: `${validFiles.length} file(s) have been selected`,
+      });
+    }
+  };
+
+  const removeReferenceBanner = (index: number) => {
+    setReferenceBanners(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.partnerName || !formData.region) {
+    if (!formData.partnerName || formData.regions.length === 0) {
       toast({
         title: "Missing required fields",
-        description: "Partner name and region are required",
+        description: "Partner name and at least one region are required",
         variant: "destructive",
       });
       return;
@@ -91,7 +150,6 @@ const PartnerCreationForm = () => {
 
     setIsLoading(true);
     
-    // Mock API call
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       
@@ -103,13 +161,14 @@ const PartnerCreationForm = () => {
       // Reset form
       setFormData({
         partnerName: '',
-        region: '',
-        industry: '',
+        regions: [],
+        partnerURL: '',
+        benefitsDescription: '',
         description: '',
-        contactEmail: '',
-        website: '',
       });
+      setLogo(null);
       setBrandManual(null);
+      setReferenceBanners([]);
       
     } catch (error) {
       toast({
@@ -130,91 +189,82 @@ const PartnerCreationForm = () => {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="partnerName" className="text-sm font-medium text-gray-700">
-                Partner Name *
-              </Label>
-              <Input
-                id="partnerName"
-                value={formData.partnerName}
-                onChange={(e) => handleInputChange('partnerName', e.target.value)}
-                placeholder="Enter partner name"
-                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="region" className="text-sm font-medium text-gray-700">
-                Region *
-              </Label>
-              <Select value={formData.region} onValueChange={(value) => handleInputChange('region', value)}>
-                <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500">
-                  <SelectValue placeholder="Select region" />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((region) => (
-                    <SelectItem key={region} value={region}>
-                      {region}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="industry" className="text-sm font-medium text-gray-700">
-                Industry
-              </Label>
-              <Select value={formData.industry} onValueChange={(value) => handleInputChange('industry', value)}>
-                <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500">
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  {industries.map((industry) => (
-                    <SelectItem key={industry} value={industry}>
-                      {industry}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="contactEmail" className="text-sm font-medium text-gray-700">
-                Contact Email
-              </Label>
-              <Input
-                id="contactEmail"
-                type="email"
-                value={formData.contactEmail}
-                onChange={(e) => handleInputChange('contactEmail', e.target.value)}
-                placeholder="partner@company.com"
-                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors"
-              />
-            </div>
-          </div>
-
+          {/* Partner Name */}
           <div className="space-y-2">
-            <Label htmlFor="website" className="text-sm font-medium text-gray-700">
-              Website
+            <Label htmlFor="partnerName" className="text-sm font-medium text-gray-700">
+              Partner Name *
             </Label>
             <Input
-              id="website"
+              id="partnerName"
+              value={formData.partnerName}
+              onChange={(e) => handleInputChange('partnerName', e.target.value)}
+              placeholder="Enter partner name"
+              className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors"
+              required
+            />
+          </div>
+
+          {/* Regions */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700">
+              Regions * (Select all that apply)
+            </Label>
+            <div className="space-y-3">
+              {regions.map((region) => (
+                <div key={region.id} className="flex items-start space-x-3 p-3 bg-white/30 rounded-lg border border-gray-200">
+                  <Checkbox
+                    id={region.id}
+                    checked={formData.regions.includes(region.id)}
+                    onCheckedChange={(checked) => handleRegionChange(region.id, checked as boolean)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor={region.id} className="text-sm font-medium text-gray-700 cursor-pointer">
+                      {region.label}
+                    </Label>
+                    <p className="text-xs text-gray-500 mt-1">{region.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Partner URL */}
+          <div className="space-y-2">
+            <Label htmlFor="partnerURL" className="text-sm font-medium text-gray-700">
+              Partner URL
+              <span className="text-xs text-gray-500 ml-2">(used for branding colors)</span>
+            </Label>
+            <Input
+              id="partnerURL"
               type="url"
-              value={formData.website}
-              onChange={(e) => handleInputChange('website', e.target.value)}
+              value={formData.partnerURL}
+              onChange={(e) => handleInputChange('partnerURL', e.target.value)}
               placeholder="https://www.partner-website.com"
               className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors"
             />
           </div>
 
+          {/* Benefits Description */}
+          <div className="space-y-2">
+            <Label htmlFor="benefitsDescription" className="text-sm font-medium text-gray-700">
+              Benefits Description
+              <span className="text-xs text-gray-500 ml-2">(used for copy information)</span>
+            </Label>
+            <Textarea
+              id="benefitsDescription"
+              value={formData.benefitsDescription}
+              onChange={(e) => handleInputChange('benefitsDescription', e.target.value)}
+              placeholder="Describe the benefits users get with Bonda (e.g., 20% discount, free shipping...)"
+              className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors resize-none"
+              rows={3}
+            />
+          </div>
+
+          {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-              Description
+              Additional Description
             </Label>
             <Textarea
               id="description"
@@ -226,41 +276,138 @@ const PartnerCreationForm = () => {
             />
           </div>
 
-          {/* Brand Manual Upload */}
+          {/* Logo Upload */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">Brand Manual</Label>
+            <Label className="text-sm font-medium text-gray-700">Partner Logo (PNG)</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    Upload brand manual (PDF, JPEG, PNG)
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Maximum file size: 10MB
-                  </p>
+                  <p className="text-sm text-gray-600">Upload partner logo (PNG format)</p>
+                  <p className="text-xs text-gray-500">Maximum file size: 5MB</p>
                 </div>
                 <input
                   type="file"
-                  id="brandManual"
+                  id="logo"
                   className="hidden"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileUpload}
+                  accept=".png"
+                  onChange={handleLogoUpload}
                 />
                 <Button
                   type="button"
                   variant="outline"
                   className="mt-4"
-                  onClick={() => document.getElementById('brandManual')?.click()}
+                  onClick={() => document.getElementById('logo')?.click()}
                 >
-                  Choose File
+                  Choose Logo
                 </Button>
               </div>
               
-              {brandManual && (
+              {logo && (
                 <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center">
                   <Check className="w-5 h-5 text-green-600 mr-2" />
-                  <span className="text-sm text-green-700">{brandManual.name}</span>
+                  <span className="text-sm text-green-700">{logo.name}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Brand Manual */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">Brand Manual (CSV)</Label>
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={downloadBrandManualTemplate}
+                className="w-full justify-center"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download CSV Template
+              </Button>
+              
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+                <div className="text-center">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">Upload completed brand manual (CSV)</p>
+                    <p className="text-xs text-gray-500">Fill out the template with brand colors and fonts</p>
+                  </div>
+                  <input
+                    type="file"
+                    id="brandManual"
+                    className="hidden"
+                    accept=".csv"
+                    onChange={handleBrandManualUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => document.getElementById('brandManual')?.click()}
+                  >
+                    Upload Brand Manual
+                  </Button>
+                </div>
+                
+                {brandManual && (
+                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center">
+                    <Check className="w-5 h-5 text-green-600 mr-2" />
+                    <span className="text-sm text-green-700">{brandManual.name}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Reference Banners (Optional) */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">
+              Reference Banners (Optional)
+              <span className="text-xs text-gray-500 ml-2">(for AI context)</span>
+            </Label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">Upload existing banners for reference</p>
+                  <p className="text-xs text-gray-500">Images only, maximum 10MB each</p>
+                </div>
+                <input
+                  type="file"
+                  id="referenceBanners"
+                  className="hidden"
+                  accept="image/*"
+                  multiple
+                  onChange={handleReferenceBannersUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => document.getElementById('referenceBanners')?.click()}
+                >
+                  Choose Reference Banners
+                </Button>
+              </div>
+              
+              {referenceBanners.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Selected files:</p>
+                  {referenceBanners.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                      <span className="text-sm text-green-700">{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeReferenceBanner(index)}
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -268,7 +415,7 @@ const PartnerCreationForm = () => {
 
           <Button
             type="submit"
-            disabled={isLoading || !formData.partnerName || !formData.region}
+            disabled={isLoading || !formData.partnerName || formData.regions.length === 0}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
           >
             {isLoading ? (
