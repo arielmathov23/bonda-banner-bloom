@@ -186,12 +186,17 @@ const Index = () => {
               <div className="px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                   <div className="flex items-center space-x-3">
-                    {/* Mobile menu trigger */}
+                    {/* Mobile menu trigger - only visible on small screens */}
                     <SidebarTrigger className="md:hidden">
                       <Menu className="w-5 h-5" />
                     </SidebarTrigger>
-                    <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-                      <Image className="w-5 h-5 text-white" />
+                    {/* Replace the icon with the uploaded logo */}
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+                      <img 
+                        src="/lovable-uploads/41776386-a7fe-49a4-97f6-4445039b80d9.png" 
+                        alt="Bonda Logo" 
+                        className="w-8 h-8 object-contain"
+                      />
                     </div>
                     <div>
                       <h1 className="text-xl font-semibold text-gray-700">
