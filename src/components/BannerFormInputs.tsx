@@ -75,138 +75,149 @@ const BannerFormInputs = ({
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Partner Selection */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Partner</Label>
-          {partnersLoading ? (
-            <div className="bg-gray-50 rounded-md p-3">
-              <p className="text-gray-600 text-sm">Loading partners...</p>
-            </div>
-          ) : partners.length === 0 ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-              <p className="text-yellow-800 text-sm">No partners available. Create a partner first.</p>
-            </div>
-          ) : (
-            <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a partner" />
-              </SelectTrigger>
-              <SelectContent className="bg-white shadow-lg border z-50">
-                {partners.map((partner) => (
-                  <SelectItem key={partner.id} value={partner.id}>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium">{partner.name}</span>
-                      <span className="text-xs text-gray-500">
-                        ({formatRegions(partner.regions)})
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        </div>
-
-        {/* Banner Type */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Banner Type</Label>
-          <RadioGroup value={bannerType} onValueChange={setBannerType} className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="general" id="general" />
-              <Label htmlFor="general" className="text-sm cursor-pointer">General</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="promotion" id="promotion" />
-              <Label htmlFor="promotion" className="text-sm cursor-pointer">Promotion</Label>
-            </div>
-          </RadioGroup>
-          
-          {bannerType === 'promotion' && (
-            <div className="mt-3">
-              <Label className="text-xs text-gray-600 mb-1 block">Discount Percentage</Label>
-              <Input
-                type="number"
-                placeholder="e.g., 20"
-                value={promotionDiscount}
-                onChange={(e) => setPromotionDiscount(e.target.value)}
-                className="w-full"
-                min="1"
-                max="100"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Banner Copy */}
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Banner Copy</Label>
-          <Textarea
-            value={bannerCopy}
-            onChange={(e) => setBannerCopy(e.target.value)}
-            placeholder="Enter your banner text..."
-            className="resize-none"
-            rows={3}
-            maxLength={100}
-          />
-          <div className="text-xs text-gray-500">
-            {bannerCopy.length}/100 characters
-          </div>
-        </div>
-
-        {/* Style Selection */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Style</Label>
-          <RadioGroup value={selectedStyle} onValueChange={setSelectedStyle} className="space-y-2">
-            {bannerStyles.map((style) => (
-              <div key={style.id} className="flex items-center space-x-2">
-                <RadioGroupItem value={style.id} id={style.id} />
-                <Label htmlFor={style.id} className="text-sm cursor-pointer">{style.name}</Label>
+      {/* User Inputs in Filled Rectangle */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+          {/* Partner Selection */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Partner</Label>
+            {partnersLoading ? (
+              <div className="bg-white rounded-md p-3 border">
+                <p className="text-gray-600 text-sm">Loading partners...</p>
               </div>
-            ))}
-          </RadioGroup>
-        </div>
-
-        {/* Flavor Selection */}
-        <div className="space-y-3">
-          <Label className="text-sm font-medium">Image Type</Label>
-          <RadioGroup value={selectedFlavor} onValueChange={setSelectedFlavor} className="space-y-2">
-            {bannerFlavors.map((flavor) => (
-              <div key={flavor.id} className="flex items-center space-x-2">
-                <RadioGroupItem value={flavor.id} id={flavor.id} />
-                <Label htmlFor={flavor.id} className="text-sm cursor-pointer">{flavor.name}</Label>
+            ) : partners.length === 0 ? (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                <p className="text-yellow-800 text-sm">No partners available. Create a partner first.</p>
               </div>
-            ))}
-          </RadioGroup>
-        </div>
-
-        {/* Selected Partner Info */}
-        {selectedPartner && (
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-            <div className="font-medium text-blue-900 text-sm mb-1">{selectedPartner.name}</div>
-            <div className="text-blue-700 text-xs">
-              {formatRegions(selectedPartner.regions)} • {selectedPartner.status}
-            </div>
-            {selectedPartner.description && (
-              <div className="text-blue-600 text-xs mt-1">{selectedPartner.description}</div>
+            ) : (
+              <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select a partner" />
+                </SelectTrigger>
+                <SelectContent className="bg-white shadow-lg border z-50">
+                  {partners.map((partner) => (
+                    <SelectItem key={partner.id} value={partner.id}>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium">{partner.name}</span>
+                        <span className="text-xs text-gray-500">
+                          ({formatRegions(partner.regions)})
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
           </div>
-        )}
 
-        {/* Generation Progress */}
-        {isGenerating && (
-          <div className="bg-purple-50 border border-purple-200 rounded-md p-3">
-            <div className="flex items-center mb-2">
-              <Sparkles className="w-4 h-4 text-purple-600 mr-2 animate-pulse" />
-              <span className="text-purple-700 font-medium text-sm">Generating banner...</span>
+          {/* Banner Type */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-900">Banner Type</Label>
+            <div className="bg-white rounded-md p-4 border">
+              <RadioGroup value={bannerType} onValueChange={setBannerType} className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="general" id="general" />
+                  <Label htmlFor="general" className="text-sm cursor-pointer">General</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="promotion" id="promotion" />
+                  <Label htmlFor="promotion" className="text-sm cursor-pointer">Promotion</Label>
+                </div>
+              </RadioGroup>
+              
+              {bannerType === 'promotion' && (
+                <div className="mt-4 pt-4 border-t">
+                  <Label className="text-xs text-gray-600 mb-2 block">Discount Percentage</Label>
+                  <Input
+                    type="number"
+                    placeholder="e.g., 20"
+                    value={promotionDiscount}
+                    onChange={(e) => setPromotionDiscount(e.target.value)}
+                    className="w-full"
+                    min="1"
+                    max="100"
+                  />
+                </div>
+              )}
             </div>
-            <Progress value={progress} className="h-2" />
           </div>
-        )}
+
+          {/* Banner Copy */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-900">Banner Copy</Label>
+            <div className="bg-white rounded-md p-4 border space-y-2">
+              <Textarea
+                value={bannerCopy}
+                onChange={(e) => setBannerCopy(e.target.value)}
+                placeholder="Enter your banner text..."
+                className="resize-none border-0 p-0 focus-visible:ring-0"
+                rows={3}
+                maxLength={100}
+              />
+              <div className="text-xs text-gray-500 text-right">
+                {bannerCopy.length}/100 characters
+              </div>
+            </div>
+          </div>
+
+          {/* Style Selection */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-900">Style</Label>
+            <div className="bg-white rounded-md p-4 border">
+              <RadioGroup value={selectedStyle} onValueChange={setSelectedStyle} className="space-y-3">
+                {bannerStyles.map((style) => (
+                  <div key={style.id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={style.id} id={style.id} />
+                    <Label htmlFor={style.id} className="text-sm cursor-pointer">{style.name}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+
+          {/* Flavor Selection */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-900">Image Type</Label>
+            <div className="bg-white rounded-md p-4 border">
+              <RadioGroup value={selectedFlavor} onValueChange={setSelectedFlavor} className="space-y-3">
+                {bannerFlavors.map((flavor) => (
+                  <div key={flavor.id} className="flex items-center space-x-2">
+                    <RadioGroupItem value={flavor.id} id={flavor.id} />
+                    <Label htmlFor={flavor.id} className="text-sm cursor-pointer">{flavor.name}</Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+          </div>
+
+          {/* Selected Partner Info */}
+          {selectedPartner && (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+              <div className="font-medium text-blue-900 text-sm mb-1">{selectedPartner.name}</div>
+              <div className="text-blue-700 text-xs">
+                {formatRegions(selectedPartner.regions)} • {selectedPartner.status}
+              </div>
+              {selectedPartner.description && (
+                <div className="text-blue-600 text-xs mt-1">{selectedPartner.description}</div>
+              )}
+            </div>
+          )}
+
+          {/* Generation Progress */}
+          {isGenerating && (
+            <div className="bg-purple-50 border border-purple-200 rounded-md p-4">
+              <div className="flex items-center mb-2">
+                <Sparkles className="w-4 h-4 text-purple-600 mr-2 animate-pulse" />
+                <span className="text-purple-700 font-medium text-sm">Generating banner...</span>
+              </div>
+              <Progress value={progress} className="h-2" />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Generate Button - Fixed at bottom */}
-      <div className="p-6 border-t bg-white">
+      <div className="p-4 border-t bg-white">
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !isFormValid || partnersLoading}

@@ -184,38 +184,26 @@ const BannerGeneration = () => {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-6 p-6">
-      {/* Left Column - Inputs */}
+      {/* Left Column - Chat (when generated) or Inputs (when not generated) */}
       <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-96'} flex-shrink-0`}>
-        <Card className="h-full shadow-lg">
-          <CardHeader className="pb-4 border-b">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-bold flex items-center">
-                  <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
-                  Banner Setup
-                </CardTitle>
-                <CardDescription className="text-sm text-gray-600">Configure your banner</CardDescription>
-              </div>
-              {hasGenerated && (
-                <div className="flex gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsInputMinimized(!isInputMinimized)}
-                    className="h-8 w-8 p-0"
-                  >
-                    {isInputMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={resetForm}>
-                    New
-                  </Button>
-                </div>
-              )}
-            </div>
-          </CardHeader>
+        {hasGenerated ? (
+          <div className="h-full">
+            <BannerChat
+              onIterationRequest={handleIteration}
+              isGenerating={isGenerating}
+            />
+          </div>
+        ) : (
+          <Card className="h-full shadow-lg">
+            <CardHeader className="pb-4 border-b">
+              <CardTitle className="text-lg font-bold flex items-center">
+                <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
+                Banner Setup
+              </CardTitle>
+              <CardDescription className="text-sm text-gray-600">Configure your banner</CardDescription>
+            </CardHeader>
 
-          <CardContent className="p-0 flex-1 overflow-hidden">
-            {!isInputMinimized ? (
+            <CardContent className="p-0 flex-1 overflow-hidden">
               <BannerFormInputs
                 selectedPartnerId={selectedPartnerId}
                 setSelectedPartnerId={setSelectedPartnerId}
@@ -236,38 +224,62 @@ const BannerGeneration = () => {
                 progress={progress}
                 onGenerate={generateBannerOptions}
               />
-            ) : (
-              <div className="p-4 space-y-3">
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Partner:</span> 
-                  <span className="ml-1 text-gray-900">{selectedPartner?.name}</span>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Right Column - Generated Banners & Form Summary */}
+      <div className="flex-1 flex flex-col gap-6 min-w-0">
+        {/* Form Summary (when generated and minimized) */}
+        {hasGenerated && (
+          <Card className="shadow-lg">
+            <CardHeader className="pb-4 border-b">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold flex items-center">
+                  <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
+                  Configuration
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={resetForm}>
+                  New Banner
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-700">Partner:</span> 
+                    <span className="ml-1 text-gray-900">{selectedPartner?.name}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-700">Type:</span> 
+                    <span className="ml-1 text-gray-900">
+                      {bannerType}
+                      {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-700">Style:</span> 
+                    <span className="ml-1 text-gray-900">{selectedStyle}</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium text-gray-700">Image:</span> 
+                    <span className="ml-1 text-gray-900">{selectedFlavor}</span>
+                  </div>
                 </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Type:</span> 
-                  <span className="ml-1 text-gray-900">
-                    {bannerType}
-                    {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
-                  </span>
-                </div>
-                <div className="text-sm">
-                  <span className="font-medium text-gray-700">Style:</span> 
-                  <span className="ml-1 text-gray-900">{selectedStyle}</span>
-                </div>
-                <div className="text-sm">
+                <div className="text-sm border-t pt-3">
                   <span className="font-medium text-gray-700">Copy:</span> 
                   <span className="ml-1 text-gray-900">"{bannerCopy}"</span>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        )}
 
-      {/* Right Column - Generated Banners & Chat */}
-      <div className="flex-1 flex flex-col gap-6 min-w-0">
         {/* Banner Preview */}
-        {hasGenerated && currentOption && (
-          <Card className="shadow-lg">
+        {hasGenerated && currentOption ? (
+          <Card className="shadow-lg flex-1">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-bold">Generated Banner</CardTitle>
@@ -349,16 +361,6 @@ const BannerGeneration = () => {
               </div>
             </CardContent>
           </Card>
-        )}
-
-        {/* Chat Interface */}
-        {hasGenerated ? (
-          <div className="flex-1 min-h-0">
-            <BannerChat
-              onIterationRequest={handleIteration}
-              isGenerating={isGenerating}
-            />
-          </div>
         ) : (
           <Card className="flex-1 shadow-lg">
             <CardContent className="flex items-center justify-center h-full">
