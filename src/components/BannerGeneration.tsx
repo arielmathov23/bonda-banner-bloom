@@ -1,9 +1,7 @@
-
 import React, { useState } from 'react';
 import { Wand2, Download, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
 import BannerFormInputs from '@/components/BannerFormInputs';
@@ -184,21 +182,21 @@ const BannerGeneration = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-12rem)] flex gap-6">
+    <div className="h-[calc(100vh-8rem)] flex gap-4 p-4">
       {/* Left Column - Inputs */}
-      <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-1/2'}`}>
-        <Card className="h-full bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-          <CardHeader className="pb-4">
+      <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-1/2'} flex-shrink-0`}>
+        <Card className="h-full">
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
-                  <Wand2 className="w-6 h-6 mr-2 text-blue-600" />
-                  Banner Configuration
+                <CardTitle className="text-lg font-bold flex items-center">
+                  <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
+                  Banner Setup
                 </CardTitle>
-                <CardDescription>Configure your banner specifications</CardDescription>
+                <CardDescription className="text-sm">Configure your banner</CardDescription>
               </div>
               {hasGenerated && (
-                <div className="flex gap-2">
+                <div className="flex gap-1">
                   <Button
                     variant="outline"
                     size="sm"
@@ -207,15 +205,15 @@ const BannerGeneration = () => {
                     {isInputMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
                   </Button>
                   <Button variant="outline" size="sm" onClick={resetForm}>
-                    New Banner
+                    New
                   </Button>
                 </div>
               )}
             </div>
           </CardHeader>
 
-          <CardContent className="flex-1 overflow-auto">
-            {!isInputMinimized && (
+          <CardContent className="p-0 flex-1 overflow-auto">
+            {!isInputMinimized ? (
               <BannerFormInputs
                 selectedPartnerId={selectedPartnerId}
                 setSelectedPartnerId={setSelectedPartnerId}
@@ -236,21 +234,19 @@ const BannerGeneration = () => {
                 progress={progress}
                 onGenerate={generateBannerOptions}
               />
-            )}
-
-            {isInputMinimized && hasGenerated && (
-              <div className="space-y-3">
-                <div className="text-sm text-gray-600">
+            ) : (
+              <div className="p-4 space-y-2">
+                <div className="text-sm">
                   <span className="font-medium">Partner:</span> {selectedPartner?.name}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm">
                   <span className="font-medium">Type:</span> {bannerType}
                   {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm">
                   <span className="font-medium">Style:</span> {selectedStyle}
                 </div>
-                <div className="text-sm text-gray-600">
+                <div className="text-sm">
                   <span className="font-medium">Copy:</span> {bannerCopy}
                 </div>
               </div>
@@ -260,88 +256,87 @@ const BannerGeneration = () => {
       </div>
 
       {/* Right Column - Generated Banners & Chat */}
-      <div className={`transition-all duration-300 ${isInputMinimized ? 'flex-1' : 'w-1/2'} flex flex-col gap-6`}>
+      <div className="flex-1 flex flex-col gap-4 min-w-0">
         {/* Banner Preview */}
         {hasGenerated && currentOption && (
-          <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-            <CardHeader className="pb-4">
+          <Card>
+            <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-gray-900">
-                  Generated Banner
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  {generatedOptions.length > 1 && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentOptionIndex(Math.max(0, currentOptionIndex - 1))}
-                        disabled={currentOptionIndex === 0}
-                      >
-                        <ChevronLeft className="w-4 h-4" />
-                      </Button>
-                      <span className="text-sm text-gray-600">
-                        {currentOptionIndex + 1} of {generatedOptions.length}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentOptionIndex(Math.min(generatedOptions.length - 1, currentOptionIndex + 1))}
-                        disabled={currentOptionIndex === generatedOptions.length - 1}
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </Button>
-                    </>
-                  )}
-                </div>
+                <CardTitle className="text-lg font-bold">Generated Banner</CardTitle>
+                {generatedOptions.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentOptionIndex(Math.max(0, currentOptionIndex - 1))}
+                      disabled={currentOptionIndex === 0}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm">
+                      {currentOptionIndex + 1} of {generatedOptions.length}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentOptionIndex(Math.min(generatedOptions.length - 1, currentOptionIndex + 1))}
+                      disabled={currentOptionIndex === generatedOptions.length - 1}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Desktop Preview */}
               <div>
-                <div className="text-sm font-medium text-gray-700 mb-2">Desktop (1440x338px)</div>
-                <div className="bg-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                <div className="text-sm font-medium mb-2">Desktop (1440x338px)</div>
+                <div className="bg-gray-50 rounded p-4">
                   <img
                     src={currentOption.desktopUrl}
                     alt="Desktop Banner"
-                    className="w-full rounded-lg shadow-sm"
+                    className="w-full rounded"
                   />
                 </div>
               </div>
 
               {/* Mobile Preview */}
               <div>
-                <div className="text-sm font-medium text-gray-700 mb-2">Mobile (984x450px)</div>
-                <div className="bg-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                <div className="text-sm font-medium mb-2">Mobile (984x450px)</div>
+                <div className="bg-gray-50 rounded p-4">
                   <img
                     src={currentOption.mobileUrl}
                     alt="Mobile Banner"
-                    className="w-full max-w-md mx-auto rounded-lg shadow-sm"
+                    className="w-full max-w-md mx-auto rounded"
                   />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-3 pt-4">
+              <div className="flex gap-2 pt-2">
                 <Button
                   onClick={() => downloadBanner('desktop')}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  size="sm"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Desktop
+                  <Download className="w-4 h-4 mr-1" />
+                  Desktop
                 </Button>
                 <Button
                   onClick={() => downloadBanner('mobile')}
-                  className="bg-green-600 hover:bg-green-700 text-white"
+                  className="bg-green-600 hover:bg-green-700"
+                  size="sm"
                 >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Mobile
+                  <Download className="w-4 h-4 mr-1" />
+                  Mobile
                 </Button>
                 <Button
                   onClick={saveBanner}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  className="bg-purple-600 hover:bg-purple-700"
+                  size="sm"
                 >
-                  Save to Projects
+                  Save
                 </Button>
               </div>
             </CardContent>
@@ -349,23 +344,20 @@ const BannerGeneration = () => {
         )}
 
         {/* Chat Interface */}
-        {hasGenerated && (
-          <div className="flex-1">
+        {hasGenerated ? (
+          <div className="flex-1 min-h-0">
             <BannerChat
               onIterationRequest={handleIteration}
               isGenerating={isGenerating}
             />
           </div>
-        )}
-
-        {/* Welcome Message */}
-        {!hasGenerated && (
-          <Card className="flex-1 bg-white/60 backdrop-blur-sm border-0 shadow-lg">
+        ) : (
+          <Card className="flex-1">
             <CardContent className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500">
                 <Wand2 className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                 <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
-                <p>Configure your banner settings and click generate to see your banner here</p>
+                <p>Fill in the form and generate your banner</p>
               </div>
             </CardContent>
           </Card>
