@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Wand2, Download, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -182,18 +183,18 @@ const BannerGeneration = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-4 p-4">
+    <div className="h-[calc(100vh-8rem)] flex gap-6 p-6">
       {/* Left Column - Inputs */}
-      <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-1/2'} flex-shrink-0`}>
-        <Card className="h-full">
-          <CardHeader className="pb-3">
+      <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-96'} flex-shrink-0`}>
+        <Card className="h-full shadow-lg">
+          <CardHeader className="pb-4 border-b">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-lg font-bold flex items-center">
                   <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
                   Banner Setup
                 </CardTitle>
-                <CardDescription className="text-sm">Configure your banner</CardDescription>
+                <CardDescription className="text-sm text-gray-600">Configure your banner</CardDescription>
               </div>
               {hasGenerated && (
                 <div className="flex gap-1">
@@ -201,6 +202,7 @@ const BannerGeneration = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => setIsInputMinimized(!isInputMinimized)}
+                    className="h-8 w-8 p-0"
                   >
                     {isInputMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
                   </Button>
@@ -212,7 +214,7 @@ const BannerGeneration = () => {
             </div>
           </CardHeader>
 
-          <CardContent className="p-0 flex-1 overflow-auto">
+          <CardContent className="p-0 flex-1 overflow-hidden">
             {!isInputMinimized ? (
               <BannerFormInputs
                 selectedPartnerId={selectedPartnerId}
@@ -235,19 +237,25 @@ const BannerGeneration = () => {
                 onGenerate={generateBannerOptions}
               />
             ) : (
-              <div className="p-4 space-y-2">
+              <div className="p-4 space-y-3">
                 <div className="text-sm">
-                  <span className="font-medium">Partner:</span> {selectedPartner?.name}
+                  <span className="font-medium text-gray-700">Partner:</span> 
+                  <span className="ml-1 text-gray-900">{selectedPartner?.name}</span>
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Type:</span> {bannerType}
-                  {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
+                  <span className="font-medium text-gray-700">Type:</span> 
+                  <span className="ml-1 text-gray-900">
+                    {bannerType}
+                    {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
+                  </span>
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Style:</span> {selectedStyle}
+                  <span className="font-medium text-gray-700">Style:</span> 
+                  <span className="ml-1 text-gray-900">{selectedStyle}</span>
                 </div>
                 <div className="text-sm">
-                  <span className="font-medium">Copy:</span> {bannerCopy}
+                  <span className="font-medium text-gray-700">Copy:</span> 
+                  <span className="ml-1 text-gray-900">"{bannerCopy}"</span>
                 </div>
               </div>
             )}
@@ -256,11 +264,11 @@ const BannerGeneration = () => {
       </div>
 
       {/* Right Column - Generated Banners & Chat */}
-      <div className="flex-1 flex flex-col gap-4 min-w-0">
+      <div className="flex-1 flex flex-col gap-6 min-w-0">
         {/* Banner Preview */}
         {hasGenerated && currentOption && (
-          <Card>
-            <CardHeader className="pb-3">
+          <Card className="shadow-lg">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-bold">Generated Banner</CardTitle>
                 {generatedOptions.length > 1 && (
@@ -273,7 +281,7 @@ const BannerGeneration = () => {
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
-                    <span className="text-sm">
+                    <span className="text-sm font-medium">
                       {currentOptionIndex + 1} of {generatedOptions.length}
                     </span>
                     <Button
@@ -291,24 +299,24 @@ const BannerGeneration = () => {
             <CardContent className="space-y-4">
               {/* Desktop Preview */}
               <div>
-                <div className="text-sm font-medium mb-2">Desktop (1440x338px)</div>
-                <div className="bg-gray-50 rounded p-4">
+                <div className="text-sm font-medium mb-2 text-gray-700">Desktop (1440x338px)</div>
+                <div className="bg-gray-50 rounded-md p-4">
                   <img
                     src={currentOption.desktopUrl}
                     alt="Desktop Banner"
-                    className="w-full rounded"
+                    className="w-full rounded border"
                   />
                 </div>
               </div>
 
               {/* Mobile Preview */}
               <div>
-                <div className="text-sm font-medium mb-2">Mobile (984x450px)</div>
-                <div className="bg-gray-50 rounded p-4">
+                <div className="text-sm font-medium mb-2 text-gray-700">Mobile (984x450px)</div>
+                <div className="bg-gray-50 rounded-md p-4">
                   <img
                     src={currentOption.mobileUrl}
                     alt="Mobile Banner"
-                    className="w-full max-w-md mx-auto rounded"
+                    className="w-full max-w-md mx-auto rounded border"
                   />
                 </div>
               </div>
@@ -352,12 +360,12 @@ const BannerGeneration = () => {
             />
           </div>
         ) : (
-          <Card className="flex-1">
+          <Card className="flex-1 shadow-lg">
             <CardContent className="flex items-center justify-center h-full">
               <div className="text-center text-gray-500">
                 <Wand2 className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
-                <p>Fill in the form and generate your banner</p>
+                <h3 className="text-lg font-medium mb-2 text-gray-700">Ready to Generate</h3>
+                <p className="text-gray-600">Fill in the form and generate your banner</p>
               </div>
             </CardContent>
           </Card>
