@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Search, MoreHorizontal, MapPin, Globe, Mail, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,12 @@ import { usePartners } from '@/hooks/usePartners';
 
 const PartnerList = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { partners, isLoading } = usePartners();
+  const { partners, isLoading, fetchPartners } = usePartners();
+
+  // Refresh partners when component mounts or when we want to ensure fresh data
+  useEffect(() => {
+    console.log('PartnerList mounted, current partners:', partners);
+  }, [partners]);
 
   const regionLabels: Record<string, string> = {
     'argentina-uruguay': 'Argentina & Uruguay',
@@ -45,6 +50,11 @@ const PartnerList = () => {
     return regions.map(region => regionLabels[region] || region).join(', ');
   };
 
+  const handleRefresh = () => {
+    console.log('Manually refreshing partners...');
+    fetchPartners();
+  };
+
   if (isLoading) {
     return (
       <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
@@ -64,8 +74,20 @@ const PartnerList = () => {
   return (
     <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900">Partner Directory</CardTitle>
-        <CardDescription>Manage your existing partners ({partners.length} total)</CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="text-xl font-bold text-gray-900">Partner Directory</CardTitle>
+            <CardDescription>Manage your existing partners ({partners.length} total)</CardDescription>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            className="ml-4"
+          >
+            Refresh
+          </Button>
+        </div>
         
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />

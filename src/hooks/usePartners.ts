@@ -34,6 +34,7 @@ export const usePartners = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchPartners = async () => {
+    console.log('Fetching partners from database...');
     try {
       const { data, error } = await supabase
         .from('partners')
@@ -42,12 +43,15 @@ export const usePartners = () => {
 
       if (error) throw error;
       
+      console.log('Fetched partners data:', data);
+      
       // Type cast the data to ensure status is properly typed
       const typedPartners = (data || []).map(partner => ({
         ...partner,
         status: (partner.status || 'active') as 'active' | 'pending' | 'inactive'
       }));
       
+      console.log('Setting partners state with:', typedPartners);
       setPartners(typedPartners);
     } catch (error) {
       console.error('Error fetching partners:', error);
@@ -64,6 +68,8 @@ export const usePartners = () => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${folder}/${Date.now()}-${Math.random()}.${fileExt}`;
       
+      console.log('Uploading file:', fileName);
+      
       const { error: uploadError } = await supabase.storage
         .from('partner-assets')
         .upload(fileName, file);
@@ -74,6 +80,7 @@ export const usePartners = () => {
         .from('partner-assets')
         .getPublicUrl(fileName);
 
+      console.log('File uploaded successfully:', data.publicUrl);
       return data.publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -83,6 +90,8 @@ export const usePartners = () => {
 
   const createPartner = async (partnerData: CreatePartnerData): Promise<boolean> => {
     setIsLoading(true);
+    console.log('Creating partner with data:', partnerData);
+    
     try {
       let logoUrl = null;
       let brandManualUrl = null;
@@ -91,11 +100,13 @@ export const usePartners = () => {
       // Upload logo if provided
       if (partnerData.logo) {
         logoUrl = await uploadFile(partnerData.logo, 'logos');
+        console.log('Logo uploaded:', logoUrl);
       }
 
       // Upload brand manual if provided
       if (partnerData.brand_manual) {
         brandManualUrl = await uploadFile(partnerData.brand_manual, 'brand-manuals');
+        console.log('Brand manual uploaded:', brandManualUrl);
       }
 
       // Upload reference banners if provided
@@ -105,30 +116,39 @@ export const usePartners = () => {
         );
         const results = await Promise.all(uploadPromises);
         referenceBannersUrls = results.filter(url => url !== null) as string[];
+        console.log('Reference banners uploaded:', referenceBannersUrls);
       }
 
       // Insert partner into database
-      const { error } = await supabase
+      const insertData = {
+        name: partnerData.name,
+        regions: partnerData.regions,
+        partner_url: partnerData.partner_url || null,
+        benefits_description: partnerData.benefits_description || null,
+        description: partnerData.description || null,
+        logo_url: logoUrl,
+        brand_manual_url: brandManualUrl,
+        reference_banners_urls: referenceBannersUrls,
+      };
+
+      console.log('Inserting partner with data:', insertData);
+
+      const { data: insertedData, error } = await supabase
         .from('partners')
-        .insert({
-          name: partnerData.name,
-          regions: partnerData.regions,
-          partner_url: partnerData.partner_url || null,
-          benefits_description: partnerData.benefits_description || null,
-          description: partnerData.description || null,
-          logo_url: logoUrl,
-          brand_manual_url: brandManualUrl,
-          reference_banners_urls: referenceBannersUrls,
-        });
+        .insert(insertData)
+        .select()
+        .single();
 
       if (error) throw error;
+
+      console.log('Partner created successfully:', insertedData);
 
       toast({
         title: "Partner created successfully!",
         description: `${partnerData.name} has been added to your partner list`,
       });
 
-      // Refresh partners list
+      // Refresh partners list immediately
       await fetchPartners();
       return true;
     } catch (error) {
