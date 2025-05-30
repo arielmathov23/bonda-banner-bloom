@@ -5,29 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-
-interface Partner {
-  id: string;
-  name: string;
-  region: string;
-  industry: string;
-  status: 'active' | 'pending' | 'inactive';
-  email: string;
-  website: string;
-  joinDate: string;
-}
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { usePartners } from '@/hooks/usePartners';
 
 const PartnerList = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const { partners, isLoading } = usePartners();
 
-  // Start with empty partners array - user will add partners manually
-  const partners: Partner[] = [];
+  const regionLabels: Record<string, string> = {
+    'argentina-uruguay': 'Argentina & Uruguay',
+    'latam': 'LATAM',
+  };
 
   const filteredPartners = partners.filter(partner =>
     partner.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    partner.region.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    partner.industry.toLowerCase().includes(searchTerm.toLowerCase())
+    partner.regions.some(region => 
+      regionLabels[region]?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   const getStatusColor = (status: string) => {
@@ -47,11 +41,31 @@ const PartnerList = () => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
+  const formatRegions = (regions: string[]) => {
+    return regions.map(region => regionLabels[region] || region).join(', ');
+  };
+
+  if (isLoading) {
+    return (
+      <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-xl font-bold text-gray-900">Partner Directory</CardTitle>
+          <CardDescription>Loading partners...</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
       <CardHeader>
         <CardTitle className="text-xl font-bold text-gray-900">Partner Directory</CardTitle>
-        <CardDescription>Manage your existing partners</CardDescription>
+        <CardDescription>Manage your existing partners ({partners.length} total)</CardDescription>
         
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -76,7 +90,7 @@ const PartnerList = () => {
             </div>
           ) : filteredPartners.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No partners found</p>
+              <p className="text-gray-500">No partners found matching your search</p>
             </div>
           ) : (
             filteredPartners.map((partner) => (
@@ -87,6 +101,9 @@ const PartnerList = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3 flex-1">
                     <Avatar className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600">
+                      {partner.logo_url ? (
+                        <AvatarImage src={partner.logo_url} alt={partner.name} />
+                      ) : null}
                       <AvatarFallback className="text-white font-semibold">
                         {getInitials(partner.name)}
                       </AvatarFallback>
@@ -105,23 +122,33 @@ const PartnerList = () => {
                       <div className="space-y-1">
                         <div className="flex items-center text-sm text-gray-600">
                           <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                          {partner.region} • {partner.industry}
+                          {formatRegions(partner.regions)}
                         </div>
                         
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Mail className="w-4 h-4 mr-2 text-gray-400" />
-                          {partner.email}
-                        </div>
-                        
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Globe className="w-4 h-4 mr-2 text-gray-400" />
-                          {partner.website}
-                        </div>
+                        {partner.partner_url && (
+                          <div className="flex items-center text-sm text-gray-600">
+                            <Globe className="w-4 h-4 mr-2 text-gray-400" />
+                            <a 
+                              href={partner.partner_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="hover:text-blue-600 truncate"
+                            >
+                              {partner.partner_url}
+                            </a>
+                          </div>
+                        )}
+
+                        {partner.benefits_description && (
+                          <div className="text-sm text-gray-600 mt-2">
+                            <p className="line-clamp-2">{partner.benefits_description}</p>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="mt-3 flex items-center justify-between">
                         <span className="text-xs text-gray-500">
-                          Joined {new Date(partner.joinDate).toLocaleDateString()}
+                          Created {new Date(partner.created_at).toLocaleDateString()}
                         </span>
                         
                         <Button variant="ghost" size="sm" className="h-8 w-8 p-0">

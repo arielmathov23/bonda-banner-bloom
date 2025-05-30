@@ -7,12 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import PartnerCreationForm from '@/components/PartnerCreationForm';
 import BannerGeneration from '@/components/BannerGeneration';
 import PartnerList from '@/components/PartnerList';
+import { usePartners } from '@/hooks/usePartners';
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const { partners } = usePartners();
 
   const stats = [
-    { title: 'Total Partners', value: '0', icon: Users, color: 'bg-blue-500' },
+    { title: 'Total Partners', value: partners.length.toString(), icon: Users, color: 'bg-blue-500' },
     { title: 'Generated Banners', value: '0', icon: Image, color: 'bg-green-500' },
   ];
 

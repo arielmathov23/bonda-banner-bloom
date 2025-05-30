@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upload, Check, AlertCircle, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
-import { toast } from '@/hooks/use-toast';
+import { usePartners } from '@/hooks/usePartners';
 
 const PartnerCreationForm = () => {
+  const { createPartner, isLoading } = usePartners();
+  
   const [formData, setFormData] = useState({
     partnerName: '',
     regions: [] as string[],
@@ -21,7 +22,6 @@ const PartnerCreationForm = () => {
   const [logo, setLogo] = useState<File | null>(null);
   const [brandManual, setBrandManual] = useState<File | null>(null);
   const [referenceBanners, setReferenceBanners] = useState<File[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
 
   const regions = [
     { id: 'argentina-uruguay', label: 'Argentina & Uruguay', description: 'Tone: Local, familiar' },
@@ -53,39 +53,20 @@ const PartnerCreationForm = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    toast({
-      title: "Template downloaded",
-      description: "Brand manual template has been downloaded successfully",
-    });
   };
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (!file.type.includes('png')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a PNG file for the logo",
-          variant: "destructive",
-        });
         return;
       }
       
       if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload a logo smaller than 5MB",
-          variant: "destructive",
-        });
         return;
       }
       
       setLogo(file);
-      toast({
-        title: "Logo uploaded successfully",
-        description: `${file.name} has been selected`,
-      });
     }
   };
 
@@ -93,19 +74,10 @@ const PartnerCreationForm = () => {
     const file = event.target.files?.[0];
     if (file) {
       if (!file.type.includes('csv')) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload a CSV file for the brand manual",
-          variant: "destructive",
-        });
         return;
       }
       
       setBrandManual(file);
-      toast({
-        title: "Brand manual uploaded successfully",
-        description: `${file.name} has been selected`,
-      });
     }
   };
 
@@ -116,19 +88,7 @@ const PartnerCreationForm = () => {
         file.type.includes('image/') && file.size <= 10 * 1024 * 1024
       );
       
-      if (validFiles.length !== files.length) {
-        toast({
-          title: "Some files were rejected",
-          description: "Only image files under 10MB are allowed",
-          variant: "destructive",
-        });
-      }
-      
       setReferenceBanners(prev => [...prev, ...validFiles]);
-      toast({
-        title: "Reference banners uploaded",
-        description: `${validFiles.length} file(s) have been selected`,
-      });
     }
   };
 
@@ -140,24 +100,21 @@ const PartnerCreationForm = () => {
     e.preventDefault();
     
     if (!formData.partnerName || formData.regions.length === 0) {
-      toast({
-        title: "Missing required fields",
-        description: "Partner name and at least one region are required",
-        variant: "destructive",
-      });
       return;
     }
 
-    setIsLoading(true);
-    
-    try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "Partner created successfully!",
-        description: `${formData.partnerName} has been added to your partner list`,
-      });
-      
+    const success = await createPartner({
+      name: formData.partnerName,
+      regions: formData.regions,
+      partner_url: formData.partnerURL || undefined,
+      benefits_description: formData.benefitsDescription || undefined,
+      description: formData.description || undefined,
+      logo: logo || undefined,
+      brand_manual: brandManual || undefined,
+      reference_banners: referenceBanners.length > 0 ? referenceBanners : undefined,
+    });
+
+    if (success) {
       // Reset form
       setFormData({
         partnerName: '',
@@ -169,15 +126,6 @@ const PartnerCreationForm = () => {
       setLogo(null);
       setBrandManual(null);
       setReferenceBanners([]);
-      
-    } catch (error) {
-      toast({
-        title: "Error creating partner",
-        description: "Please try again later",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
     }
   };
 

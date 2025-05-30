@@ -9,7 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      partners: {
+        Row: {
+          benefits_description: string | null
+          brand_manual_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          partner_url: string | null
+          reference_banners_urls: string[] | null
+          regions: string[]
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          benefits_description?: string | null
+          brand_manual_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          partner_url?: string | null
+          reference_banners_urls?: string[] | null
+          regions: string[]
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          benefits_description?: string | null
+          brand_manual_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          partner_url?: string | null
+          reference_banners_urls?: string[] | null
+          regions?: string[]
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
