@@ -19,22 +19,22 @@ interface AppSidebarProps {
 
 const menuItems = [
   {
-    title: 'Home',
+    title: 'Inicio',
     icon: Home,
     key: 'home',
   },
   {
-    title: 'Partners',
+    title: 'Socios',
     icon: Users,
     key: 'partners',
   },
   {
-    title: 'List of Banners',
+    title: 'Lista de Banners',
     icon: List,
     key: 'banner-list',
   },
   {
-    title: 'Create a Banner',
+    title: 'Crear un Banner',
     icon: Plus,
     key: 'create-banner',
   },
@@ -45,8 +45,8 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
     <Sidebar className="border-r border-brand-100">
       <SidebarContent className="bg-white">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-brand-600 font-medium px-3 py-2">
-            Navigation
+          <SidebarGroupLabel className="text-gray-600 font-medium px-3 py-2">
+            Navegación
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -58,7 +58,7 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
                     className={`w-full justify-start px-3 py-2 ${
                       activeSection === item.key
                         ? 'bg-brand-500 text-white hover:bg-brand-600'
-                        : 'text-brand-700 hover:bg-brand-50 hover:text-brand-900'
+                        : 'text-gray-700 hover:bg-brand-50 hover:text-brand-500'
                     }`}
                   >
                     <item.icon className="w-4 h-4 mr-3" />
