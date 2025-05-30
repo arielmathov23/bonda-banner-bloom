@@ -23,6 +23,20 @@ export default {
 				'sans': ['DM Sans', 'system-ui', 'sans-serif'],
 			},
 			colors: {
+				'brand': {
+					DEFAULT: '#8A47F5',
+					50: '#F4EFFF',
+					100: '#E9DEFF',
+					200: '#D3BDFF',
+					300: '#BD9CFF',
+					400: '#A773FF',
+					500: '#8A47F5',
+					600: '#7B30E5',
+					700: '#6B20D1',
+					800: '#5C15B8',
+					900: '#4D0E9E',
+					950: '#3E0B85'
+				},
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',
