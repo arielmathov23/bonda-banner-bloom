@@ -1,15 +1,77 @@
-
 import React, { useState } from 'react';
 import { Users, Image, History, Home, Plus, List, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import PartnerCreationForm from '@/components/PartnerCreationForm';
 import BannerGeneration from '@/components/BannerGeneration';
 import PartnerList from '@/components/PartnerList';
 import BannerHistory from '@/components/BannerHistory';
 import { usePartners } from '@/hooks/usePartners';
+
+const HeaderContent = ({ activeSection, setActiveSection }: { activeSection: string, setActiveSection: (section: string) => void }) => {
+  const { state } = useSidebar();
+  const isCollapsed = state === 'collapsed';
+
+  // Mock recent banners data
+  const recentBanners = [
+    {
+      id: '1',
+      title: 'Campaña de Rebajas de Verano',
+      partner: 'Socio A',
+      createdAt: new Date(2024, 4, 25),
+      thumbnail: '/placeholder.svg'
+    },
+    {
+      id: '2',
+      title: 'Promoción Black Friday',
+      partner: 'Socio B',
+      createdAt: new Date(2024, 4, 24),
+      thumbnail: '/placeholder.svg'
+    },
+    {
+      id: '3',
+      title: 'Especial de Navidad',
+      partner: 'Socio C',
+      createdAt: new Date(2024, 4, 23),
+      thumbnail: '/placeholder.svg'
+    }
+  ];
+
+  const stats = [
+    { title: 'Socios Totales', value: '10', icon: Users },
+    { title: 'Banners Generados', value: '12', icon: Image },
+  ];
+
+  return (
+    <header className="bg-white border-b border-brand-100 sticky top-0 z-50">
+      <div className="px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          <div className="flex items-center space-x-3">
+            {/* Menu trigger - visible when sidebar is collapsed or on mobile */}
+            <SidebarTrigger className={`${isCollapsed ? 'block' : 'md:hidden'}`}>
+              <Menu className="w-5 h-5" />
+            </SidebarTrigger>
+            
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
+              <img 
+                src="/lovable-uploads/41776386-a7fe-49a4-97f6-4445039b80d9.png" 
+                alt="Bonda Logo" 
+                className="w-8 h-8 object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-700">
+                Generación de Banners Bonda
+              </h1>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+};
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState('home');
@@ -181,32 +243,7 @@ const Index = () => {
           <AppSidebar activeSection={activeSection} setActiveSection={setActiveSection} />
           
           <div className="flex-1 flex flex-col">
-            {/* Header with menu trigger for mobile */}
-            <header className="bg-white border-b border-brand-100 sticky top-0 z-50">
-              <div className="px-6 lg:px-8">
-                <div className="flex justify-between items-center h-16">
-                  <div className="flex items-center space-x-3">
-                    {/* Mobile menu trigger - only visible on small screens */}
-                    <SidebarTrigger className="md:hidden">
-                      <Menu className="w-5 h-5" />
-                    </SidebarTrigger>
-                    {/* Replace the icon with the uploaded logo */}
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-                      <img 
-                        src="/lovable-uploads/41776386-a7fe-49a4-97f6-4445039b80d9.png" 
-                        alt="Bonda Logo" 
-                        className="w-8 h-8 object-contain"
-                      />
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-semibold text-gray-700">
-                        Generación de Banners Bonda
-                      </h1>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </header>
+            <HeaderContent activeSection={activeSection} setActiveSection={setActiveSection} />
 
             {/* Main Content */}
             <main className="flex-1 p-6 lg:p-8">

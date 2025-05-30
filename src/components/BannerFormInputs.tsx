@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Wand2, Loader } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -41,6 +40,12 @@ interface BannerFormInputsProps {
   onGenerate: () => void;
 }
 
+const styleReferences = {
+  'audaz-y-dinamico': 'https://images.unsplash.com/photo-1460925895917-afdab827c52f',
+  'minimalista': 'https://images.unsplash.com/photo-1483058712412-4245e9b90334',
+  'vibrante': 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07'
+};
+
 const BannerFormInputs = ({
   selectedPartnerId,
   setSelectedPartnerId,
@@ -64,7 +69,7 @@ const BannerFormInputs = ({
   onGenerate,
 }: BannerFormInputsProps) => {
   return (
-    <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-xl max-w-2xl mx-auto">
+    <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-xl max-w-xl mx-auto">
       <CardHeader className="pb-3">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -78,7 +83,6 @@ const BannerFormInputs = ({
       </CardHeader>
       
       <CardContent className="space-y-3 p-4 pt-0">
-        {/* Partner Selection */}
         <div className="space-y-1.5">
           <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Seleccionar Socio *</Label>
           <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
@@ -165,7 +169,7 @@ const BannerFormInputs = ({
           <div className="text-xs text-gray-500 text-right">{ctaCopy.length}/25</div>
         </div>
 
-        {/* Style Selection */}
+        {/* Style Selection with Reference Images */}
         <div className="space-y-1.5">
           <Label htmlFor="style" className="text-sm font-medium text-gray-700">Estilo Visual *</Label>
           <Select value={selectedStyle} onValueChange={setSelectedStyle}>
@@ -178,6 +182,20 @@ const BannerFormInputs = ({
               <SelectItem value="vibrante">🌈 Vibrante</SelectItem>
             </SelectContent>
           </Select>
+          
+          {/* Reference Image */}
+          {selectedStyle && styleReferences[selectedStyle as keyof typeof styleReferences] && (
+            <div className="mt-2">
+              <p className="text-xs text-gray-600 mb-1">Imagen de referencia:</p>
+              <div className="w-full h-20 rounded-md overflow-hidden bg-gray-100">
+                <img 
+                  src={styleReferences[selectedStyle as keyof typeof styleReferences]} 
+                  alt={`Referencia de estilo ${selectedStyle}`}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Flavor Selection */}
