@@ -398,7 +398,7 @@ const BannerGeneration = () => {
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 flex-1 flex items-center justify-center">
                       <img
-                        src="/lovable-uploads/24230cd3-ea20-4f08-945b-1150e752d65f.png"
+                        src="/lovable-uploads/9de34faa-a26b-487a-b40b-31f1abdf5636.png"
                         alt="Placeholder Banner Escritorio"
                         className="w-full rounded-lg border border-gray-200 shadow-sm max-h-full object-contain"
                       />
@@ -412,7 +412,7 @@ const BannerGeneration = () => {
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 flex-1 flex items-center justify-center">
                       <img
-                        src="/lovable-uploads/24230cd3-ea20-4f08-945b-1150e752d65f.png"
+                        src="/lovable-uploads/9de34faa-a26b-487a-b40b-31f1abdf5636.png"
                         alt="Placeholder Banner Móvil"
                         className="w-full max-w-sm rounded-lg border border-gray-200 shadow-sm max-h-full object-contain"
                       />
