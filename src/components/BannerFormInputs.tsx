@@ -19,6 +19,8 @@ interface BannerFormInputsProps {
   setPromotionDiscount: (value: string) => void;
   bannerCopy: string;
   setBannerCopy: (value: string) => void;
+  ctaCopy: string;
+  setCtaCopy: (value: string) => void;
   selectedStyle: string;
   setSelectedStyle: (value: string) => void;
   selectedFlavor: string;
@@ -40,6 +42,8 @@ const BannerFormInputs = ({
   setPromotionDiscount,
   bannerCopy,
   setBannerCopy,
+  ctaCopy,
+  setCtaCopy,
   selectedStyle,
   setSelectedStyle,
   selectedFlavor,
@@ -70,7 +74,7 @@ const BannerFormInputs = ({
     return regions.map(region => regionLabels[region] || region).join(', ');
   };
 
-  const isFormValid = selectedPartnerId && bannerType && bannerCopy && selectedStyle && selectedFlavor && 
+  const isFormValid = selectedPartnerId && bannerType && bannerCopy && ctaCopy && selectedStyle && selectedFlavor && 
     (bannerType !== 'promotion' || promotionDiscount);
 
   return (
@@ -90,7 +94,7 @@ const BannerFormInputs = ({
 
       {/* Scrollable Form Content */}
       <div className="flex-1 overflow-y-auto px-8">
-        <div className="py-6 space-y-8">
+        <div className="py-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Partner Selection */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold text-gray-700">Elegir Socio</Label>
@@ -191,6 +195,26 @@ const BannerFormInputs = ({
             </div>
           </div>
 
+          {/* CTA Copy */}
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-gray-700">Texto del CTA</Label>
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+              <Input
+                value={ctaCopy}
+                onChange={(e) => setCtaCopy(e.target.value)}
+                placeholder="Ej: Compra Ahora, Ver Más, Obtener Descuento..."
+                className="border-0 p-0 h-12 focus-visible:ring-0 bg-transparent text-gray-700 placeholder:text-gray-400"
+                maxLength={30}
+              />
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                <span className="text-xs text-gray-500">Acción que quieres que realice el usuario</span>
+                <span className="text-xs font-medium text-gray-600">
+                  {ctaCopy.length}/30
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Style Selection */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold text-gray-700">Estilo de Diseño</Label>
@@ -221,9 +245,9 @@ const BannerFormInputs = ({
             </div>
           </div>
 
-          {/* Selected Partner Preview */}
+          {/* Selected Partner Preview - Span both columns */}
           {selectedPartner && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+            <div className="lg:col-span-2 bg-blue-50 border border-blue-200 rounded-xl p-5">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg flex items-center justify-center flex-shrink-0">
                   <span className="text-white text-sm font-bold">{selectedPartner.name[0]}</span>
@@ -241,9 +265,9 @@ const BannerFormInputs = ({
             </div>
           )}
 
-          {/* Generation Progress */}
+          {/* Generation Progress - Span both columns */}
           {isGenerating && (
-            <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
+            <div className="lg:col-span-2 bg-purple-50 border border-purple-200 rounded-xl p-5">
               <div className="flex items-center mb-3">
                 <Sparkles className="w-5 h-5 text-purple-600 mr-3 animate-pulse" />
                 <span className="text-purple-700 font-semibold text-sm">Creando tu banner...</span>

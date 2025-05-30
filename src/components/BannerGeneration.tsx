@@ -1,13 +1,12 @@
 
 import React, { useState } from 'react';
-import { Wand2, Download, ChevronLeft, ChevronRight, RefreshCw, Sparkles } from 'lucide-react';
+import { Wand2, Download, ChevronLeft, ChevronRight, RefreshCw, Sparkles, Menu } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
 import BannerFormInputs from '@/components/BannerFormInputs';
-import BannerChat from '@/components/BannerChat';
 
 interface BannerOption {
   id: string;
@@ -34,6 +33,7 @@ const BannerGeneration = () => {
   const [bannerType, setBannerType] = useState('');
   const [promotionDiscount, setPromotionDiscount] = useState('');
   const [bannerCopy, setBannerCopy] = useState('');
+  const [ctaCopy, setCtaCopy] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedFlavor, setSelectedFlavor] = useState('');
 
@@ -46,13 +46,14 @@ const BannerGeneration = () => {
   
   // Layout state
   const [savedBanners, setSavedBanners] = useState<GeneratedBanner[]>([]);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   const { partners, isLoading: partnersLoading } = usePartners();
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
   const currentOption = generatedOptions[currentOptionIndex];
 
   const generateBannerOptions = async () => {
-    if (!selectedPartnerId || !bannerType || !bannerCopy || !selectedStyle || !selectedFlavor) {
+    if (!selectedPartnerId || !bannerType || !bannerCopy || !ctaCopy || !selectedStyle || !selectedFlavor) {
       toast({
         title: "Información faltante",
         description: "Por favor completa todos los campos requeridos",
@@ -86,14 +87,14 @@ const BannerGeneration = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const bannerStyles = ['Bold & Dynamic', 'Minimal', 'Vibrant'];
-      const bannerFlavors = ['Contextual', 'Product Photo'];
+      const bannerStyles = ['Audaz y Dinámico', 'Minimalista', 'Vibrante'];
+      const bannerFlavors = ['Contextual', 'Foto de Producto'];
       
       const styleDescription = bannerStyles.find(s => s.toLowerCase().replace(/\s+/g, '-').replace('&', '').replace(/--/g, '-') === selectedStyle) || selectedStyle;
       const flavorDescription = bannerFlavors.find(f => f.toLowerCase().replace(/\s+/g, '-') === selectedFlavor) || selectedFlavor;
       const typeDescription = bannerType === 'promotion' ? `promoción con ${promotionDiscount}% descuento` : 'general';
       
-      console.log(`AI Prompt: Crear un banner ${styleDescription} para ${selectedPartner?.name} con imágenes ${flavorDescription}. Tipo de banner: ${typeDescription}. Texto: "${bannerCopy}"`);
+      console.log(`AI Prompt: Crear un banner ${styleDescription} para ${selectedPartner?.name} con imágenes ${flavorDescription}. Tipo de banner: ${typeDescription}. Texto: "${bannerCopy}" CTA: "${ctaCopy}"`);
 
       const option: BannerOption = {
         id: '1',
@@ -125,14 +126,6 @@ const BannerGeneration = () => {
       setProgress(0);
       clearInterval(interval);
     }
-  };
-
-  const handleIteration = (message: string) => {
-    console.log('Solicitud de iteración:', message);
-    toast({
-      title: "Solicitud de iteración recibida",
-      description: "La IA está procesando tus cambios...",
-    });
   };
 
   const downloadBanner = (size: 'desktop' | 'mobile') => {
@@ -172,6 +165,7 @@ const BannerGeneration = () => {
     setBannerType('');
     setPromotionDiscount('');
     setBannerCopy('');
+    setCtaCopy('');
     setSelectedStyle('');
     setSelectedFlavor('');
     setGeneratedOptions([]);
@@ -181,62 +175,66 @@ const BannerGeneration = () => {
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-8 p-8 bg-gradient-to-br from-gray-50 to-blue-50">
+      {/* Menu Toggle Button */}
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setSidebarExpanded(!sidebarExpanded)}
+        className="fixed top-20 left-4 z-50 bg-white shadow-lg border-gray-200 hover:bg-gray-50"
+      >
+        <Menu className="w-4 h-4" />
+      </Button>
+
       {/* Left Column - Configuration (when generated) or Full Form (when not generated) */}
-      <div className={`transition-all duration-300 ${hasGenerated ? 'w-96' : 'w-full max-w-2xl mx-auto'} flex-shrink-0`}>
+      <div className={`transition-all duration-300 ${hasGenerated ? (sidebarExpanded ? 'w-80' : 'w-0 opacity-0') : 'w-full max-w-4xl mx-auto'} flex-shrink-0 ${hasGenerated && !sidebarExpanded ? 'hidden' : ''}`}>
         {hasGenerated ? (
-          <div className="space-y-6">
-            {/* Banner Configuration */}
+          <div className="space-y-4">
+            {/* Banner Configuration - Made smaller */}
             <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl">
-              <CardHeader className="pb-4">
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
-                      <Sparkles className="w-4 h-4 text-white" />
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
+                      <Sparkles className="w-3 h-3 text-white" />
                     </div>
-                    <CardTitle className="text-lg font-semibold text-gray-700">Configuración del Banner</CardTitle>
+                    <CardTitle className="text-sm font-semibold text-gray-700">Configuración</CardTitle>
                   </div>
-                  <Button variant="outline" size="sm" onClick={resetForm} className="rounded-lg border-gray-200 hover:bg-gray-50">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Nuevo Banner
+                  <Button variant="outline" size="sm" onClick={resetForm} className="rounded-lg border-gray-200 hover:bg-gray-50 text-xs">
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    Nuevo
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-6 pt-0">
-                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-5 space-y-4">
-                  <div className="space-y-4">
+              <CardContent className="p-4 pt-0">
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-3 space-y-3 text-xs">
+                  <div className="space-y-3">
                     <div className="space-y-1">
-                      <span className="font-semibold text-gray-600 text-sm">Socio</span>
+                      <span className="font-semibold text-gray-600">Socio</span>
                       <p className="text-gray-800 font-medium">{selectedPartner?.name}</p>
                     </div>
                     <div className="space-y-1">
-                      <span className="font-semibold text-gray-600 text-sm">Tipo</span>
+                      <span className="font-semibold text-gray-600">Tipo</span>
                       <p className="text-gray-800 font-medium">
                         {bannerType === 'promotion' ? 'Promocional' : 'General'}
                         {bannerType === 'promotion' && ` (${promotionDiscount}% desc)`}
                       </p>
                     </div>
                     <div className="space-y-1">
-                      <span className="font-semibold text-gray-600 text-sm">Estilo</span>
+                      <span className="font-semibold text-gray-600">Estilo</span>
                       <p className="text-gray-800 font-medium">{selectedStyle}</p>
                     </div>
-                    <div className="space-y-1">
-                      <span className="font-semibold text-gray-600 text-sm">Tipo de Imagen</span>
-                      <p className="text-gray-800 font-medium">{selectedFlavor}</p>
-                    </div>
                   </div>
-                  <div className="border-t border-gray-200 pt-4">
-                    <span className="font-semibold text-gray-600 text-sm">Texto del Banner</span>
+                  <div className="border-t border-gray-200 pt-3">
+                    <span className="font-semibold text-gray-600">Texto del Banner</span>
                     <p className="text-gray-800 font-medium mt-1">"{bannerCopy}"</p>
+                  </div>
+                  <div className="border-t border-gray-200 pt-3">
+                    <span className="font-semibold text-gray-600">CTA</span>
+                    <p className="text-gray-800 font-medium mt-1">"{ctaCopy}"</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-
-            {/* Banner Chat */}
-            <BannerChat
-              onIterationRequest={handleIteration}
-              isGenerating={isGenerating}
-            />
           </div>
         ) : (
           <BannerFormInputs
@@ -248,6 +246,8 @@ const BannerGeneration = () => {
             setPromotionDiscount={setPromotionDiscount}
             bannerCopy={bannerCopy}
             setBannerCopy={setBannerCopy}
+            ctaCopy={ctaCopy}
+            setCtaCopy={setCtaCopy}
             selectedStyle={selectedStyle}
             setSelectedStyle={setSelectedStyle}
             selectedFlavor={selectedFlavor}
@@ -368,13 +368,6 @@ const BannerGeneration = () => {
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
-
-      {/* Placeholder when no banner is generated */}
-      {!hasGenerated && (
-        <div className="hidden">
-          {/* Hidden when form takes full width */}
         </div>
       )}
     </div>
