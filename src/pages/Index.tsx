@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Users, Image, Sparkles, History, Plus } from 'lucide-react';
+import { Users, Image, History, ArrowRight, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,56 +14,81 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { partners } = usePartners();
 
+  // Mock recent banners data
+  const recentBanners = [
+    {
+      id: '1',
+      title: 'Summer Sale Campaign',
+      partner: 'Partner A',
+      createdAt: new Date(2024, 4, 25),
+      thumbnail: '/placeholder.svg'
+    },
+    {
+      id: '2',
+      title: 'Black Friday Promotion',
+      partner: 'Partner B',
+      createdAt: new Date(2024, 4, 24),
+      thumbnail: '/placeholder.svg'
+    },
+    {
+      id: '3',
+      title: 'Holiday Special',
+      partner: 'Partner C',
+      createdAt: new Date(2024, 4, 23),
+      thumbnail: '/placeholder.svg'
+    }
+  ];
+
   const stats = [
-    { title: 'Total Partners', value: partners.length.toString(), icon: Users, color: 'from-blue-500 to-cyan-500' },
-    { title: 'Generated Banners', value: '0', icon: Image, color: 'from-green-500 to-emerald-500' },
+    { title: 'Total Partners', value: partners.length.toString(), icon: Users },
+    { title: 'Generated Banners', value: '12', icon: Image },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-xl border-b border-gray-200/50 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-800 rounded-2xl flex items-center justify-center shadow-lg">
-                <Sparkles className="w-7 h-7 text-white" />
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center">
+                <Image className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                <h1 className="text-xl font-semibold text-gray-900">
                   Bonda Banner Generation
                 </h1>
-                <p className="text-sm text-gray-600 font-medium">powered by panchito</p>
+                <p className="text-xs text-gray-500">powered by panchito</p>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList className="grid w-full grid-cols-4 bg-white/70 backdrop-blur-sm p-1.5 rounded-2xl shadow-lg border border-gray-200/50">
+          <TabsList className="grid w-full grid-cols-4 bg-white p-1 rounded-lg shadow-sm border border-gray-200">
             <TabsTrigger 
               value="dashboard" 
-              className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md font-medium transition-all duration-200"
+              className="rounded-md data-[state=active]:bg-gray-900 data-[state=active]:text-white font-medium"
             >
               Dashboard
             </TabsTrigger>
             <TabsTrigger 
               value="banners" 
-              className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md font-medium transition-all duration-200"
+              className="rounded-md data-[state=active]:bg-gray-900 data-[state=active]:text-white font-medium"
             >
               Generate Banners
             </TabsTrigger>
             <TabsTrigger 
               value="history" 
-              className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md font-medium transition-all duration-200"
+              className="rounded-md data-[state=active]:bg-gray-900 data-[state=active]:text-white font-medium"
             >
               Banner History
             </TabsTrigger>
             <TabsTrigger 
               value="partners" 
-              className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-md font-medium transition-all duration-200"
+              className="rounded-md data-[state=active]:bg-gray-900 data-[state=active]:text-white font-medium"
             >
               Partners
             </TabsTrigger>
@@ -73,15 +98,15 @@ const Index = () => {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {stats.map((stat, index) => (
-                <Card key={index} className="bg-white/70 backdrop-blur-sm border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 rounded-2xl">
-                  <CardContent className="p-8">
+                <Card key={index} className="bg-white border border-gray-200 shadow-sm">
+                  <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="space-y-2">
-                        <p className="text-sm font-semibold text-gray-600 uppercase tracking-wide">{stat.title}</p>
-                        <p className="text-4xl font-bold text-gray-900">{stat.value}</p>
+                        <p className="text-sm font-medium text-gray-600">{stat.title}</p>
+                        <p className="text-3xl font-semibold text-gray-900">{stat.value}</p>
                       </div>
-                      <div className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${stat.color} flex items-center justify-center shadow-lg`}>
-                        <stat.icon className="w-8 h-8 text-white" />
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <stat.icon className="w-6 h-6 text-gray-600" />
                       </div>
                     </div>
                   </CardContent>
@@ -89,33 +114,58 @@ const Index = () => {
               ))}
             </div>
 
-            {/* Quick Actions - Only Generate Banner */}
-            <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
-              <CardHeader className="pb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl font-bold text-gray-900">Quick Action</CardTitle>
-                    <CardDescription className="text-gray-600 font-medium">Get started with banner creation</CardDescription>
-                  </div>
-                </div>
+            {/* Quick Action */}
+            <Card className="bg-white border border-gray-200 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-900">Quick Action</CardTitle>
+                <CardDescription className="text-gray-600">Start creating your banner</CardDescription>
               </CardHeader>
-              <CardContent className="pb-8">
-                <div className="flex justify-center">
-                  <Button 
-                    onClick={() => setActiveTab('banners')}
-                    variant="outline" 
-                    className="h-40 w-80 flex-col bg-gradient-to-br from-green-50 via-green-100 to-emerald-100 border-green-200/50 hover:from-green-100 hover:to-emerald-200 transition-all duration-300 rounded-2xl shadow-md hover:shadow-lg group"
-                    size="lg"
-                  >
-                    <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-200">
-                      <Image className="w-8 h-8 text-white" />
+              <CardContent>
+                <Button 
+                  onClick={() => setActiveTab('banners')}
+                  className="bg-gray-900 hover:bg-gray-800 text-white"
+                  size="lg"
+                >
+                  Generate Banner
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Recent Banners Preview */}
+            <Card className="bg-white border border-gray-200 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xl font-semibold text-gray-900">Recent Banners</CardTitle>
+                  <CardDescription className="text-gray-600">Your latest banner creations</CardDescription>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab('history')}
+                  className="border-gray-200 text-gray-600 hover:bg-gray-50"
+                >
+                  View All
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {recentBanners.map((banner) => (
+                    <div 
+                      key={banner.id} 
+                      className="group cursor-pointer p-4 rounded-lg border border-gray-200 hover:border-gray-300 transition-colors"
+                      onClick={() => setActiveTab('history')}
+                    >
+                      <div className="aspect-video bg-gray-100 rounded-md mb-3 flex items-center justify-center">
+                        <Image className="w-8 h-8 text-gray-400" />
+                      </div>
+                      <h4 className="font-medium text-gray-900 text-sm truncate">{banner.title}</h4>
+                      <p className="text-xs text-gray-500 mt-1">{banner.partner}</p>
+                      <div className="flex items-center text-xs text-gray-400 mt-2">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {banner.createdAt.toLocaleDateString()}
+                      </div>
                     </div>
-                    <span className="text-green-700 font-bold text-xl mb-2">Generate Banner</span>
-                    <span className="text-green-600 text-sm text-center">Create AI-powered marketing banners</span>
-                  </Button>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -131,20 +181,11 @@ const Index = () => {
 
           <TabsContent value="partners">
             <div className="space-y-8">
-              {/* Add Partner Action */}
-              <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-                        <Plus className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-xl font-bold text-gray-900">Add New Partner</CardTitle>
-                        <CardDescription className="text-gray-600 font-medium">Create a new business partnership</CardDescription>
-                      </div>
-                    </div>
-                  </div>
+              {/* Add Partner */}
+              <Card className="bg-white border border-gray-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-gray-900">Add New Partner</CardTitle>
+                  <CardDescription className="text-gray-600">Create a new business partnership</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <PartnerCreationForm />
@@ -152,17 +193,10 @@ const Index = () => {
               </Card>
 
               {/* Partners List */}
-              <Card className="bg-white/70 backdrop-blur-sm border-0 shadow-lg rounded-2xl">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
-                      <Users className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-xl font-bold text-gray-900">Manage Partners</CardTitle>
-                      <CardDescription className="text-gray-600 font-medium">View and edit your existing partners</CardDescription>
-                    </div>
-                  </div>
+              <Card className="bg-white border border-gray-200 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-gray-900">Manage Partners</CardTitle>
+                  <CardDescription className="text-gray-600">View and edit your existing partners</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <PartnerList />
