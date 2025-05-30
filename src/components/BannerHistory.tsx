@@ -56,13 +56,13 @@ const BannerHistory = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-brand-100 text-brand-700 border-brand-200';
       case 'processing':
-        return 'bg-gray-50 text-gray-600 border-gray-100';
+        return 'bg-brand-50 text-brand-600 border-brand-100';
       case 'failed':
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-brand-100 text-brand-800 border-brand-200';
       default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
+        return 'bg-brand-100 text-brand-700 border-brand-200';
     }
   };
 
@@ -70,20 +70,20 @@ const BannerHistory = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Banner History</h2>
-        <p className="text-gray-600 mt-1">View and manage your previously generated banners</p>
+        <h2 className="text-2xl font-semibold text-brand-900">Banner History</h2>
+        <p className="text-brand-600 mt-1">View and manage your previously generated banners</p>
       </div>
 
       {/* Search */}
-      <Card className="bg-white border border-gray-200 shadow-sm">
+      <Card className="bg-white border border-brand-100 shadow-sm">
         <CardContent className="p-6">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-brand-400 w-4 h-4" />
             <Input
               placeholder="Search banners by title or partner..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-white border-gray-200 focus:border-gray-900 h-10"
+              className="pl-10 bg-white border-brand-200 focus:border-brand-500 h-10"
             />
           </div>
         </CardContent>
@@ -93,25 +93,25 @@ const BannerHistory = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredBanners.length === 0 ? (
           <div className="col-span-full">
-            <Card className="bg-white border border-gray-200 shadow-sm">
+            <Card className="bg-white border border-brand-100 shadow-sm">
               <CardContent className="p-12 text-center">
-                <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  <ImageIcon className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 bg-brand-50 rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <ImageIcon className="w-8 h-8 text-brand-300" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No banners found</h3>
-                <p className="text-gray-500 mb-4">
+                <h3 className="text-lg font-medium text-brand-900 mb-2">No banners found</h3>
+                <p className="text-brand-500 mb-4">
                   {searchTerm ? 'No banners match your search criteria' : 'You haven\'t generated any banners yet'}
                 </p>
                 {!searchTerm && (
-                  <p className="text-sm text-gray-400">Start creating banners to see them here</p>
+                  <p className="text-sm text-brand-400">Start creating banners to see them here</p>
                 )}
               </CardContent>
             </Card>
           </div>
         ) : (
           filteredBanners.map((banner) => (
-            <Card key={banner.id} className="bg-white border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="aspect-video bg-gray-100 relative">
+            <Card key={banner.id} className="bg-white border border-brand-100 shadow-sm hover:shadow-md transition-shadow">
+              <div className="aspect-video bg-brand-50 relative">
                 {banner.imageUrl ? (
                   <img 
                     src={banner.imageUrl} 
@@ -120,7 +120,7 @@ const BannerHistory = () => {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
-                    <ImageIcon className="w-12 h-12 text-gray-400" />
+                    <ImageIcon className="w-12 h-12 text-brand-300" />
                   </div>
                 )}
                 <div className="absolute top-3 right-3">
@@ -133,13 +133,13 @@ const BannerHistory = () => {
               <CardContent className="p-4">
                 <div className="space-y-3">
                   <div>
-                    <h3 className="font-medium text-gray-900 text-sm truncate">
+                    <h3 className="font-medium text-brand-900 text-sm truncate">
                       {banner.title}
                     </h3>
-                    <p className="text-xs text-gray-600">{banner.partner}</p>
+                    <p className="text-xs text-brand-600">{banner.partner}</p>
                   </div>
                   
-                  <div className="flex items-center text-xs text-gray-500 space-x-3">
+                  <div className="flex items-center text-xs text-brand-500 space-x-3">
                     <div className="flex items-center">
                       <Calendar className="w-3 h-3 mr-1" />
                       {banner.createdAt.toLocaleDateString()}
@@ -148,18 +148,18 @@ const BannerHistory = () => {
                   </div>
                   
                   <div className="flex items-center space-x-2 pt-2">
-                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs border-gray-200 hover:bg-gray-50">
+                    <Button variant="outline" size="sm" className="flex-1 h-8 text-xs border-brand-200 hover:bg-brand-50">
                       <Eye className="w-3 h-3 mr-1" />
                       View
                     </Button>
                     {banner.status === 'completed' && (
-                      <Button variant="outline" size="sm" className="flex-1 h-8 text-xs border-gray-200 hover:bg-gray-50">
+                      <Button variant="outline" size="sm" className="flex-1 h-8 text-xs border-brand-200 hover:bg-brand-50">
                         <Download className="w-3 h-3 mr-1" />
                         Download
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" className="h-8 w-8 p-0 border-gray-200 hover:bg-gray-50">
-                      <Trash2 className="w-3 h-3 text-gray-600" />
+                    <Button variant="outline" size="sm" className="h-8 w-8 p-0 border-brand-200 hover:bg-brand-50">
+                      <Trash2 className="w-3 h-3 text-brand-600" />
                     </Button>
                   </div>
                 </div>

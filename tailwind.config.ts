@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -25,6 +24,7 @@ export default {
 			colors: {
 				'brand': {
 					DEFAULT: '#8A47F5',
+					25: '#FEFBFF',
 					50: '#F4EFFF',
 					100: '#E9DEFF',
 					200: '#D3BDFF',
