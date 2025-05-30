@@ -9,15 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
-
-interface Partner {
-  id: string;
-  name: string;
-  logo: string;
-  brandColors: string[];
-  industry: string;
-  brandingStyle: string;
-}
+import { usePartners } from '@/hooks/usePartners';
 
 interface BannerOption {
   id: string;
@@ -46,8 +38,8 @@ const BannerGeneration = () => {
   const [isInArtboard, setIsInArtboard] = useState(false);
   const [savedBanners, setSavedBanners] = useState<GeneratedBanner[]>([]);
 
-  // Start with empty partners array - user will add partners manually
-  const partners: Partner[] = [];
+  // Use the real partners from the database
+  const { partners, isLoading: partnersLoading } = usePartners();
 
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
 
@@ -171,6 +163,14 @@ const BannerGeneration = () => {
     setSelectedOption(null);
   };
 
+  const formatRegions = (regions: string[]) => {
+    const regionLabels: Record<string, string> = {
+      'argentina-uruguay': 'Argentina & Uruguay',
+      'latam': 'LATAM',
+    };
+    return regions.map(region => regionLabels[region] || region).join(', ');
+  };
+
   if (isInArtboard && selectedOption && selectedPartner) {
     return (
       <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
@@ -245,25 +245,19 @@ const BannerGeneration = () => {
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="font-medium text-gray-900 mb-3 flex items-center">
               <Palette className="w-4 h-4 mr-2" />
-              Partner Branding
+              Partner Information
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <span className="text-sm text-gray-600">Brand Colors:</span>
-                <div className="flex space-x-2 mt-1">
-                  {selectedPartner.brandColors.map((color, index) => (
-                    <div
-                      key={index}
-                      className="w-6 h-6 rounded-full border-2 border-gray-300"
-                      style={{ backgroundColor: color }}
-                    />
-                  ))}
+                <span className="text-sm text-gray-600">Regions:</span>
+                <p className="text-sm font-medium text-gray-900">{formatRegions(selectedPartner.regions)}</p>
+              </div>
+              {selectedPartner.description && (
+                <div>
+                  <span className="text-sm text-gray-600">Description:</span>
+                  <p className="text-sm font-medium text-gray-900">{selectedPartner.description}</p>
                 </div>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Style:</span>
-                <p className="text-sm font-medium text-gray-900">{selectedPartner.brandingStyle}</p>
-              </div>
+              )}
             </div>
           </div>
 
@@ -310,7 +304,13 @@ const BannerGeneration = () => {
           <div className="space-y-6">
             <div>
               <Label htmlFor="partner">Select Partner *</Label>
-              {partners.length === 0 ? (
+              {partnersLoading ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
+                  <p className="text-blue-800 text-sm">
+                    Loading partners...
+                  </p>
+                </div>
+              ) : partners.length === 0 ? (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-2">
                   <p className="text-yellow-800 text-sm">
                     No partners available. Please create a partner first in the Partners tab.
@@ -321,12 +321,17 @@ const BannerGeneration = () => {
                   <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500">
                     <SelectValue placeholder="Choose a partner from your database" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white shadow-lg border border-gray-200 z-50">
                     {partners.map((partner) => (
                       <SelectItem key={partner.id} value={partner.id}>
                         <div className="flex items-center space-x-3">
-                          <div className="w-8 h-4 rounded" style={{ backgroundColor: partner.brandColors[0] }}></div>
-                          <span>{partner.name}</span>
+                          <div className="w-8 h-4 rounded bg-blue-500"></div>
+                          <div>
+                            <span className="font-medium">{partner.name}</span>
+                            <span className="text-sm text-gray-500 ml-2">
+                              ({formatRegions(partner.regions)})
+                            </span>
+                          </div>
                         </div>
                       </SelectItem>
                     ))}
@@ -340,13 +345,19 @@ const BannerGeneration = () => {
                 <h4 className="font-medium text-blue-900 mb-2">Partner Details</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-blue-700">Industry:</span>
-                    <span className="ml-2 font-medium">{selectedPartner.industry}</span>
+                    <span className="text-blue-700">Regions:</span>
+                    <span className="ml-2 font-medium">{formatRegions(selectedPartner.regions)}</span>
                   </div>
                   <div>
-                    <span className="text-blue-700">Style:</span>
-                    <span className="ml-2 font-medium">{selectedPartner.brandingStyle}</span>
+                    <span className="text-blue-700">Status:</span>
+                    <span className="ml-2 font-medium capitalize">{selectedPartner.status}</span>
                   </div>
+                  {selectedPartner.description && (
+                    <div className="md:col-span-2">
+                      <span className="text-blue-700">Description:</span>
+                      <span className="ml-2 font-medium">{selectedPartner.description}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -366,7 +377,7 @@ const BannerGeneration = () => {
 
             <Button
               onClick={generateBannerOptions}
-              disabled={isGenerating || !selectedPartnerId}
+              disabled={isGenerating || !selectedPartnerId || partnersLoading}
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               size="lg"
             >
