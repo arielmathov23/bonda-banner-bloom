@@ -41,7 +41,14 @@ export const usePartners = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPartners(data || []);
+      
+      // Type cast the data to ensure status is properly typed
+      const typedPartners = (data || []).map(partner => ({
+        ...partner,
+        status: (partner.status || 'active') as 'active' | 'pending' | 'inactive'
+      }));
+      
+      setPartners(typedPartners);
     } catch (error) {
       console.error('Error fetching partners:', error);
       toast({
