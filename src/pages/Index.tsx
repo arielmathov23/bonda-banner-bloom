@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Users, Image, History, Home, Plus, List } from 'lucide-react';
+import { Users, Image, History, Home, Plus, List, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import PartnerCreationForm from '@/components/PartnerCreationForm';
 import BannerGeneration from '@/components/BannerGeneration';
@@ -181,11 +181,15 @@ const Index = () => {
           <AppSidebar activeSection={activeSection} setActiveSection={setActiveSection} />
           
           <div className="flex-1 flex flex-col">
-            {/* Header */}
+            {/* Header with menu trigger for mobile */}
             <header className="bg-white border-b border-brand-100 sticky top-0 z-50">
               <div className="px-6 lg:px-8">
                 <div className="flex justify-between items-center h-16">
                   <div className="flex items-center space-x-3">
+                    {/* Mobile menu trigger */}
+                    <SidebarTrigger className="md:hidden">
+                      <Menu className="w-5 h-5" />
+                    </SidebarTrigger>
                     <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
                       <Image className="w-5 h-5 text-white" />
                     </div>

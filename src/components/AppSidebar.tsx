@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, Users, List, Plus } from 'lucide-react';
+import { Home, Users, List, Plus, Menu } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -46,8 +46,11 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
     <Sidebar className="border-r border-brand-100">
       <SidebarContent className="bg-white flex flex-col">
         {/* Sidebar Trigger at the top */}
-        <div className="p-3 border-b border-gray-100">
-          <SidebarTrigger className="w-8 h-8" />
+        <div className="p-3 border-b border-gray-100 flex items-center justify-between">
+          <SidebarTrigger className="w-8 h-8">
+            <Menu className="w-4 h-4" />
+          </SidebarTrigger>
+          <span className="text-sm font-medium text-gray-700">Menú</span>
         </div>
 
         {/* Main Content */}
@@ -86,7 +89,7 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
               href="https://www.panchito.xyz/" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all duration-200"
+              className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 transition-all duration-200"
             >
               powered by panchito
             </a>
