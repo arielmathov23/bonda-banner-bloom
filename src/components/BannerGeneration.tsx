@@ -98,7 +98,7 @@ const BannerGeneration = () => {
 
       const option: BannerOption = {
         id: '1',
-        desktopUrl: `https://via.placeholder.com/720x169/4A90E2/FFFFFF?text=${encodeURIComponent(`${selectedPartner?.name || ''} - ${styleDescription} - ${bannerCopy.substring(0, 20)}...`)}`,
+        desktopUrl: '/lovable-uploads/b2f81bff-3ec1-4c17-9413-7c03f9312980.png',
         mobileUrl: `https://via.placeholder.com/492x225/4A90E2/FFFFFF?text=${encodeURIComponent(`${selectedPartner?.name || ''} - Mobile`)}`,
         style: styleDescription,
         copy: bannerCopy,
