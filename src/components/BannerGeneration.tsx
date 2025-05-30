@@ -1,17 +1,13 @@
 
 import React, { useState } from 'react';
-import { Wand2, Download, RefreshCw, Edit3, Copy, Type, Palette, Sparkles, Tag, Image } from 'lucide-react';
+import { Wand2, Download, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
+import BannerFormInputs from '@/components/BannerFormInputs';
+import BannerChat from '@/components/BannerChat';
 
 interface BannerOption {
   id: string;
@@ -33,34 +29,28 @@ interface GeneratedBanner {
 }
 
 const BannerGeneration = () => {
+  // Form state
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const [bannerType, setBannerType] = useState('');
   const [promotionDiscount, setPromotionDiscount] = useState('');
   const [bannerCopy, setBannerCopy] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedFlavor, setSelectedFlavor] = useState('');
+
+  // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generatedOptions, setGeneratedOptions] = useState<BannerOption[]>([]);
-  const [selectedOption, setSelectedOption] = useState<BannerOption | null>(null);
-  const [customCopy, setCustomCopy] = useState('');
-  const [isInArtboard, setIsInArtboard] = useState(false);
+  const [currentOptionIndex, setCurrentOptionIndex] = useState(0);
+  const [hasGenerated, setHasGenerated] = useState(false);
+  
+  // Layout state
+  const [isInputMinimized, setIsInputMinimized] = useState(false);
   const [savedBanners, setSavedBanners] = useState<GeneratedBanner[]>([]);
 
   const { partners, isLoading: partnersLoading } = usePartners();
-
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
-
-  const bannerStyles = [
-    { id: 'bold', name: 'Bold & Dynamic', description: 'Strong colors and bold typography' },
-    { id: 'minimal', name: 'Minimal', description: 'Clean and simple design' },
-    { id: 'vibrant', name: 'Vibrant', description: 'Colorful and energetic design' }
-  ];
-
-  const bannerFlavors = [
-    { id: 'contextual', name: 'Contextual', description: 'Lifestyle or situational imagery' },
-    { id: 'product', name: 'Product Photo', description: 'Focus on product imagery' }
-  ];
+  const currentOption = generatedOptions[currentOptionIndex];
 
   const generateBannerOptions = async () => {
     if (!selectedPartnerId || !bannerType || !bannerCopy || !selectedStyle || !selectedFlavor) {
@@ -84,7 +74,6 @@ const BannerGeneration = () => {
     setIsGenerating(true);
     setProgress(0);
 
-    // Simulate AI generation progress
     const interval = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -98,14 +87,15 @@ const BannerGeneration = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Create AI prompt based on user inputs
-      const styleDescription = bannerStyles.find(s => s.id === selectedStyle)?.name || selectedStyle;
-      const flavorDescription = bannerFlavors.find(f => f.id === selectedFlavor)?.name || selectedFlavor;
+      const bannerStyles = ['Bold & Dynamic', 'Minimal', 'Vibrant'];
+      const bannerFlavors = ['Contextual', 'Product Photo'];
+      
+      const styleDescription = bannerStyles.find(s => s.toLowerCase().replace(/\s+/g, '-').replace('&', '').replace(/--/g, '-') === selectedStyle) || selectedStyle;
+      const flavorDescription = bannerFlavors.find(f => f.toLowerCase().replace(/\s+/g, '-') === selectedFlavor) || selectedFlavor;
       const typeDescription = bannerType === 'promotion' ? `promotion with ${promotionDiscount}% discount` : 'general';
       
       console.log(`AI Prompt: Create a ${styleDescription} banner for ${selectedPartner?.name} with ${flavorDescription} imagery. Banner type: ${typeDescription}. Copy: "${bannerCopy}"`);
 
-      // Generate banner option based on user specifications
       const option: BannerOption = {
         id: '1',
         desktopUrl: `https://via.placeholder.com/720x169/4A90E2/FFFFFF?text=${encodeURIComponent(`${selectedPartner?.name || ''} - ${styleDescription} - ${bannerCopy.substring(0, 20)}...`)}`,
@@ -117,9 +107,9 @@ const BannerGeneration = () => {
       };
 
       setGeneratedOptions([option]);
-      setSelectedOption(option);
-      setCustomCopy(bannerCopy);
-      setIsInArtboard(true);
+      setCurrentOptionIndex(0);
+      setHasGenerated(true);
+      setIsInputMinimized(true);
 
       toast({
         title: "Banner generated!",
@@ -139,16 +129,19 @@ const BannerGeneration = () => {
     }
   };
 
-  const selectOption = (option: BannerOption) => {
-    setSelectedOption(option);
-    setCustomCopy(option.copy);
-    setIsInArtboard(true);
+  const handleIteration = (message: string) => {
+    console.log('Iteration request:', message);
+    // Here you would implement the AI iteration logic
+    toast({
+      title: "Iteration request received",
+      description: "AI is processing your changes...",
+    });
   };
 
   const downloadBanner = (size: 'desktop' | 'mobile') => {
-    if (!selectedOption) return;
+    if (!currentOption) return;
     
-    const url = size === 'desktop' ? selectedOption.desktopUrl : selectedOption.mobileUrl;
+    const url = size === 'desktop' ? currentOption.desktopUrl : currentOption.mobileUrl;
     const dimensions = size === 'desktop' ? '1440x338' : '984x450';
     
     toast({
@@ -158,28 +151,18 @@ const BannerGeneration = () => {
   };
 
   const saveBanner = () => {
-    if (!selectedOption || !selectedPartner) return;
+    if (!currentOption || !selectedPartner) return;
 
     const newBanner: GeneratedBanner = {
       id: Date.now().toString(),
       partnerId: selectedPartner.id,
       partnerName: selectedPartner.name,
-      selectedOption: { ...selectedOption, copy: customCopy },
-      customCopy,
+      selectedOption: currentOption,
+      customCopy: bannerCopy,
       createdAt: new Date().toISOString()
     };
 
     setSavedBanners(prev => [newBanner, ...prev]);
-    setIsInArtboard(false);
-    setSelectedOption(null);
-    setGeneratedOptions([]);
-    setSelectedPartnerId('');
-    setBannerType('');
-    setPromotionDiscount('');
-    setBannerCopy('');
-    setSelectedStyle('');
-    setSelectedFlavor('');
-    setCustomCopy('');
 
     toast({
       title: "Banner saved!",
@@ -187,390 +170,207 @@ const BannerGeneration = () => {
     });
   };
 
-  const backToOptions = () => {
-    setIsInArtboard(false);
-    setSelectedOption(null);
+  const resetForm = () => {
+    setSelectedPartnerId('');
+    setBannerType('');
+    setPromotionDiscount('');
+    setBannerCopy('');
+    setSelectedStyle('');
+    setSelectedFlavor('');
+    setGeneratedOptions([]);
+    setHasGenerated(false);
+    setIsInputMinimized(false);
+    setCurrentOptionIndex(0);
   };
-
-  const formatRegions = (regions: string[]) => {
-    const regionLabels: Record<string, string> = {
-      'argentina-uruguay': 'Argentina & Uruguay',
-      'latam': 'LATAM',
-    };
-    return regions.map(region => regionLabels[region] || region).join(', ');
-  };
-
-  if (isInArtboard && selectedOption && selectedPartner) {
-    return (
-      <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
-                <Edit3 className="w-6 h-6 mr-2 text-blue-600" />
-                Banner Artboard - {selectedPartner.name}
-              </CardTitle>
-              <CardDescription>Customize your banner and download</CardDescription>
-            </div>
-            <Button variant="outline" onClick={backToOptions}>
-              Back to Generate
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Banner Preview */}
-          <div className="space-y-4">
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                Desktop Version (1440x338px)
-              </Label>
-              <div className="bg-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300">
-                <img
-                  src={selectedOption.desktopUrl}
-                  alt="Desktop Banner"
-                  className="w-full max-w-2xl mx-auto rounded-lg shadow-sm"
-                />
-              </div>
-            </div>
-            
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                Mobile Version (984x450px)
-              </Label>
-              <div className="bg-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300">
-                <img
-                  src={selectedOption.mobileUrl}
-                  alt="Mobile Banner"
-                  className="w-full max-w-md mx-auto rounded-lg shadow-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Copy Editor */}
-          <div className="space-y-3">
-            <Label htmlFor="customCopy" className="text-sm font-medium text-gray-700 flex items-center">
-              <Type className="w-4 h-4 mr-2" />
-              Banner Copy
-            </Label>
-            <Textarea
-              id="customCopy"
-              value={customCopy}
-              onChange={(e) => setCustomCopy(e.target.value)}
-              placeholder="Enter your banner copy..."
-              className="bg-white/50 border-gray-200 focus:border-blue-500 resize-none"
-              rows={3}
-              maxLength={100}
-            />
-            <div className="flex justify-between items-center text-sm text-gray-500">
-              <span>Characters: {customCopy.length}/100</span>
-              <div className="flex space-x-2">
-                <Badge variant="outline" className="text-xs">
-                  {selectedOption.style}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {selectedOption.bannerType}
-                </Badge>
-                <Badge variant="outline" className="text-xs">
-                  {selectedOption.flavor}
-                </Badge>
-              </div>
-            </div>
-          </div>
-
-          {/* Partner Branding Info */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-              <Palette className="w-4 h-4 mr-2" />
-              Partner Information
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <span className="text-sm text-gray-600">Regions:</span>
-                <p className="text-sm font-medium text-gray-900">{formatRegions(selectedPartner.regions)}</p>
-              </div>
-              {selectedPartner.description && (
-                <div>
-                  <span className="text-sm text-gray-600">Description:</span>
-                  <p className="text-sm font-medium text-gray-900">{selectedPartner.description}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3">
-            <Button
-              onClick={() => downloadBanner('desktop')}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download Desktop
-            </Button>
-            <Button
-              onClick={() => downloadBanner('mobile')}
-              className="bg-green-600 hover:bg-green-700 text-white"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download Mobile
-            </Button>
-            <Button
-              onClick={saveBanner}
-              className="bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              Save to Projects
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      {/* Banner Configuration Form */}
-      <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
-            <Wand2 className="w-6 h-6 mr-2 text-blue-600" />
-            AI Banner Generation
-          </CardTitle>
-          <CardDescription>Configure your banner specifications for optimal AI generation</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            {/* Partner Selection */}
-            <div>
-              <Label htmlFor="partner">1. Select Partner *</Label>
-              {partnersLoading ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
-                  <p className="text-blue-800 text-sm">Loading partners...</p>
-                </div>
-              ) : partners.length === 0 ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-2">
-                  <p className="text-yellow-800 text-sm">
-                    No partners available. Please create a partner first in the Partners tab.
-                  </p>
-                </div>
-              ) : (
-                <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                  <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500 mt-2">
-                    <SelectValue placeholder="Choose a partner from your database" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-white shadow-lg border border-gray-200 z-50">
-                    {partners.map((partner) => (
-                      <SelectItem key={partner.id} value={partner.id}>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-4 rounded bg-blue-500"></div>
-                          <div>
-                            <span className="font-medium">{partner.name}</span>
-                            <span className="text-sm text-gray-500 ml-2">
-                              ({formatRegions(partner.regions)})
-                            </span>
-                          </div>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            {/* Banner Type */}
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block flex items-center">
-                <Tag className="w-4 h-4 mr-2" />
-                2. Banner Type *
-              </Label>
-              <RadioGroup value={bannerType} onValueChange={setBannerType}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="general" id="general" />
-                  <Label htmlFor="general">General Banner</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="promotion" id="promotion" />
-                  <Label htmlFor="promotion">Promotion Banner (with discount)</Label>
-                </div>
-              </RadioGroup>
-              
-              {bannerType === 'promotion' && (
-                <div className="mt-3">
-                  <Label htmlFor="discount">Discount Percentage *</Label>
-                  <Input
-                    id="discount"
-                    type="number"
-                    placeholder="e.g., 20"
-                    value={promotionDiscount}
-                    onChange={(e) => setPromotionDiscount(e.target.value)}
-                    className="bg-white/50 border-gray-200 focus:border-blue-500 mt-1"
-                    min="1"
-                    max="100"
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Banner Copy */}
-            <div>
-              <Label htmlFor="bannerCopy" className="text-sm font-medium text-gray-700 mb-2 block flex items-center">
-                <Type className="w-4 h-4 mr-2" />
-                3. Banner Copy *
-              </Label>
-              <Textarea
-                id="bannerCopy"
-                value={bannerCopy}
-                onChange={(e) => setBannerCopy(e.target.value)}
-                placeholder="Enter the text that will appear on your banner..."
-                className="bg-white/50 border-gray-200 focus:border-blue-500 resize-none"
-                rows={3}
-                maxLength={100}
-              />
-              <div className="text-sm text-gray-500 mt-1">
-                Characters: {bannerCopy.length}/100
+    <div className="h-[calc(100vh-12rem)] flex gap-6">
+      {/* Left Column - Inputs */}
+      <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-1/2'}`}>
+        <Card className="h-full bg-white/60 backdrop-blur-sm border-0 shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
+                  <Wand2 className="w-6 h-6 mr-2 text-blue-600" />
+                  Banner Configuration
+                </CardTitle>
+                <CardDescription>Configure your banner specifications</CardDescription>
               </div>
+              {hasGenerated && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsInputMinimized(!isInputMinimized)}
+                  >
+                    {isInputMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={resetForm}>
+                    New Banner
+                  </Button>
+                </div>
+              )}
             </div>
+          </CardHeader>
 
-            {/* Style Selection */}
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block flex items-center">
-                <Palette className="w-4 h-4 mr-2" />
-                4. Banner Style *
-              </Label>
-              <RadioGroup value={selectedStyle} onValueChange={setSelectedStyle}>
-                {bannerStyles.map((style) => (
-                  <div key={style.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                    <RadioGroupItem value={style.id} id={style.id} className="mt-0.5" />
-                    <div className="flex-1">
-                      <Label htmlFor={style.id} className="font-medium cursor-pointer">
-                        {style.name}
-                      </Label>
-                      <p className="text-sm text-gray-600">{style.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
+          <CardContent className="flex-1 overflow-auto">
+            {!isInputMinimized && (
+              <BannerFormInputs
+                selectedPartnerId={selectedPartnerId}
+                setSelectedPartnerId={setSelectedPartnerId}
+                bannerType={bannerType}
+                setBannerType={setBannerType}
+                promotionDiscount={promotionDiscount}
+                setPromotionDiscount={setPromotionDiscount}
+                bannerCopy={bannerCopy}
+                setBannerCopy={setBannerCopy}
+                selectedStyle={selectedStyle}
+                setSelectedStyle={setSelectedStyle}
+                selectedFlavor={selectedFlavor}
+                setSelectedFlavor={setSelectedFlavor}
+                partners={partners}
+                partnersLoading={partnersLoading}
+                selectedPartner={selectedPartner}
+                isGenerating={isGenerating}
+                progress={progress}
+                onGenerate={generateBannerOptions}
+              />
+            )}
 
-            {/* Flavor Selection */}
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-3 block flex items-center">
-                <Image className="w-4 h-4 mr-2" />
-                5. Banner Flavor *
-              </Label>
-              <RadioGroup value={selectedFlavor} onValueChange={setSelectedFlavor}>
-                {bannerFlavors.map((flavor) => (
-                  <div key={flavor.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
-                    <RadioGroupItem value={flavor.id} id={flavor.id} className="mt-0.5" />
-                    <div className="flex-1">
-                      <Label htmlFor={flavor.id} className="font-medium cursor-pointer">
-                        {flavor.name}
-                      </Label>
-                      <p className="text-sm text-gray-600">{flavor.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
-            </div>
+            {isInputMinimized && hasGenerated && (
+              <div className="space-y-3">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Partner:</span> {selectedPartner?.name}
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Type:</span> {bannerType}
+                  {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Style:</span> {selectedStyle}
+                </div>
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">Copy:</span> {bannerCopy}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-            {/* Selected Partner Info */}
-            {selectedPartner && (
-              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <h4 className="font-medium text-blue-900 mb-2">Selected Partner Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-blue-700">Regions:</span>
-                    <span className="ml-2 font-medium">{formatRegions(selectedPartner.regions)}</span>
-                  </div>
-                  <div>
-                    <span className="text-blue-700">Status:</span>
-                    <span className="ml-2 font-medium capitalize">{selectedPartner.status}</span>
-                  </div>
-                  {selectedPartner.description && (
-                    <div className="md:col-span-2">
-                      <span className="text-blue-700">Description:</span>
-                      <span className="ml-2 font-medium">{selectedPartner.description}</span>
-                    </div>
+      {/* Right Column - Generated Banners & Chat */}
+      <div className={`transition-all duration-300 ${isInputMinimized ? 'flex-1' : 'w-1/2'} flex flex-col gap-6`}>
+        {/* Banner Preview */}
+        {hasGenerated && currentOption && (
+          <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
+            <CardHeader className="pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold text-gray-900">
+                  Generated Banner
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {generatedOptions.length > 1 && (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentOptionIndex(Math.max(0, currentOptionIndex - 1))}
+                        disabled={currentOptionIndex === 0}
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </Button>
+                      <span className="text-sm text-gray-600">
+                        {currentOptionIndex + 1} of {generatedOptions.length}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentOptionIndex(Math.min(generatedOptions.length - 1, currentOptionIndex + 1))}
+                        disabled={currentOptionIndex === generatedOptions.length - 1}
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
-            )}
-
-            {/* Generation Progress */}
-            {isGenerating && (
-              <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
-                <div className="flex items-center mb-3">
-                  <Sparkles className="w-5 h-5 text-purple-600 mr-2 animate-pulse" />
-                  <span className="text-purple-700 font-medium">Generating optimized banner...</span>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Desktop Preview */}
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">Desktop (1440x338px)</div>
+                <div className="bg-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                  <img
+                    src={currentOption.desktopUrl}
+                    alt="Desktop Banner"
+                    className="w-full rounded-lg shadow-sm"
+                  />
                 </div>
-                <Progress value={progress} className="h-2 bg-purple-100" />
-                <p className="text-sm text-purple-600 mt-2">
-                  AI is creating banner with your specifications: {selectedStyle && bannerStyles.find(s => s.id === selectedStyle)?.name}, {selectedFlavor && bannerFlavors.find(f => f.id === selectedFlavor)?.name}
-                </p>
               </div>
-            )}
 
-            {/* Generate Button */}
-            <Button
-              onClick={generateBannerOptions}
-              disabled={isGenerating || !selectedPartnerId || !bannerType || !bannerCopy || !selectedStyle || !selectedFlavor || partnersLoading}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
-              size="lg"
-            >
-              {isGenerating ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Generating Banner...
+              {/* Mobile Preview */}
+              <div>
+                <div className="text-sm font-medium text-gray-700 mb-2">Mobile (984x450px)</div>
+                <div className="bg-gray-100 rounded-lg p-4 border-2 border-dashed border-gray-300">
+                  <img
+                    src={currentOption.mobileUrl}
+                    alt="Mobile Banner"
+                    className="w-full max-w-md mx-auto rounded-lg shadow-sm"
+                  />
                 </div>
-              ) : (
-                <>
-                  <Wand2 className="w-5 h-5 mr-2" />
-                  Generate Optimized Banner
-                </>
-              )}
-            </Button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-3 pt-4">
+                <Button
+                  onClick={() => downloadBanner('desktop')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Desktop
+                </Button>
+                <Button
+                  onClick={() => downloadBanner('mobile')}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Mobile
+                </Button>
+                <Button
+                  onClick={saveBanner}
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  Save to Projects
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Chat Interface */}
+        {hasGenerated && (
+          <div className="flex-1">
+            <BannerChat
+              onIterationRequest={handleIteration}
+              isGenerating={isGenerating}
+            />
           </div>
-        </CardContent>
-      </Card>
+        )}
 
-      {/* Saved Banners */}
-      {savedBanners.length > 0 && (
-        <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Your Banner Projects</CardTitle>
-            <CardDescription>Previously created banners</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {savedBanners.map((banner) => (
-                <div key={banner.id} className="bg-white/50 rounded-lg p-4 border border-gray-200">
-                  <div className="flex justify-between items-start mb-3">
-                    <h4 className="font-medium text-gray-900">{banner.partnerName}</h4>
-                    <div className="flex space-x-1">
-                      <Badge variant="outline" className="text-xs">
-                        {banner.selectedOption.style}
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        {banner.selectedOption.bannerType}
-                      </Badge>
-                    </div>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3">{banner.customCopy}</p>
-                  <div className="flex space-x-2">
-                    <Button size="sm" variant="outline">
-                      <Download className="w-3 h-3 mr-1" />
-                      Desktop
-                    </Button>
-                    <Button size="sm" variant="outline">
-                      <Download className="w-3 h-3 mr-1" />
-                      Mobile
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        {/* Welcome Message */}
+        {!hasGenerated && (
+          <Card className="flex-1 bg-white/60 backdrop-blur-sm border-0 shadow-lg">
+            <CardContent className="flex items-center justify-center h-full">
+              <div className="text-center text-gray-500">
+                <Wand2 className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <h3 className="text-lg font-medium mb-2">Ready to Generate</h3>
+                <p>Configure your banner settings and click generate to see your banner here</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };
