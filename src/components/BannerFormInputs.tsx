@@ -74,34 +74,53 @@ const BannerFormInputs = ({
     (bannerType !== 'promotion' || promotionDiscount);
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-white rounded-2xl shadow-sm border border-gray-100">
+      {/* Header */}
+      <div className="px-8 py-6 border-b border-gray-100">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center">
+            <Wand2 className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Create Banner</h2>
+            <p className="text-sm text-gray-500">Design your perfect banner in minutes</p>
+          </div>
+        </div>
+      </div>
+
       {/* Scrollable Form Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-8">
+        <div className="py-6 space-y-8">
           {/* Partner Selection */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Partner</Label>
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-gray-900">Choose Partner</Label>
             {partnersLoading ? (
-              <div className="bg-white rounded-md p-3 border">
+              <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <p className="text-gray-600 text-sm">Loading partners...</p>
               </div>
             ) : partners.length === 0 ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                <p className="text-yellow-800 text-sm">No partners available. Create a partner first.</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-amber-800 text-sm font-medium">No partners available</p>
+                <p className="text-amber-700 text-xs mt-1">Create a partner first to get started</p>
               </div>
             ) : (
               <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                <SelectTrigger className="bg-white">
+                <SelectTrigger className="bg-white border-gray-200 rounded-xl h-12 px-4 hover:border-gray-300 transition-colors">
                   <SelectValue placeholder="Select a partner" />
                 </SelectTrigger>
-                <SelectContent className="bg-white shadow-lg border z-50">
+                <SelectContent className="bg-white shadow-lg border border-gray-200 rounded-xl z-50">
                   {partners.map((partner) => (
-                    <SelectItem key={partner.id} value={partner.id}>
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">{partner.name}</span>
-                        <span className="text-xs text-gray-500">
-                          ({formatRegions(partner.regions)})
-                        </span>
+                    <SelectItem key={partner.id} value={partner.id} className="rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg flex items-center justify-center">
+                          <span className="text-white text-xs font-bold">{partner.name[0]}</span>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-900">{partner.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">
+                            ({formatRegions(partner.regions)})
+                          </span>
+                        </div>
                       </div>
                     </SelectItem>
                   ))}
@@ -112,130 +131,155 @@ const BannerFormInputs = ({
 
           {/* Banner Type */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-gray-900">Banner Type</Label>
-            <div className="bg-white rounded-md p-4 border">
-              <RadioGroup value={bannerType} onValueChange={setBannerType} className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="general" id="general" />
-                  <Label htmlFor="general" className="text-sm cursor-pointer">General</Label>
+            <Label className="text-sm font-semibold text-gray-900">Banner Type</Label>
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
+              <RadioGroup value={bannerType} onValueChange={setBannerType} className="space-y-4">
+                <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white transition-colors">
+                  <RadioGroupItem value="general" id="general" className="border-2" />
+                  <Label htmlFor="general" className="text-sm font-medium cursor-pointer flex-1">
+                    General Banner
+                    <span className="block text-xs text-gray-500 mt-1">Perfect for brand awareness and general promotions</span>
+                  </Label>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="promotion" id="promotion" />
-                  <Label htmlFor="promotion" className="text-sm cursor-pointer">Promotion</Label>
+                <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white transition-colors">
+                  <RadioGroupItem value="promotion" id="promotion" className="border-2" />
+                  <Label htmlFor="promotion" className="text-sm font-medium cursor-pointer flex-1">
+                    Promotional Banner
+                    <span className="block text-xs text-gray-500 mt-1">Highlight special offers and discounts</span>
+                  </Label>
                 </div>
               </RadioGroup>
               
               {bannerType === 'promotion' && (
-                <div className="mt-4 pt-4 border-t">
-                  <Label className="text-xs text-gray-600 mb-2 block">Discount Percentage</Label>
-                  <Input
-                    type="number"
-                    placeholder="e.g., 20"
-                    value={promotionDiscount}
-                    onChange={(e) => setPromotionDiscount(e.target.value)}
-                    className="w-full"
-                    min="1"
-                    max="100"
-                  />
+                <div className="mt-5 pt-5 border-t border-gray-200">
+                  <Label className="text-sm font-medium text-gray-700 mb-3 block">Discount Percentage</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      placeholder="20"
+                      value={promotionDiscount}
+                      onChange={(e) => setPromotionDiscount(e.target.value)}
+                      className="h-12 rounded-xl border-gray-200 pr-8"
+                      min="1"
+                      max="100"
+                    />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">%</span>
+                  </div>
                 </div>
               )}
             </div>
           </div>
 
           {/* Banner Copy */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-900">Banner Copy</Label>
-            <div className="bg-white rounded-md p-4 border space-y-2">
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold text-gray-900">Banner Text</Label>
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
               <Textarea
                 value={bannerCopy}
                 onChange={(e) => setBannerCopy(e.target.value)}
-                placeholder="Enter your banner text..."
-                className="resize-none border-0 p-0 focus-visible:ring-0"
-                rows={3}
+                placeholder="Enter your compelling banner message..."
+                className="resize-none border-0 p-0 focus-visible:ring-0 bg-transparent text-gray-900 placeholder:text-gray-400"
+                rows={4}
                 maxLength={100}
               />
-              <div className="text-xs text-gray-500 text-right">
-                {bannerCopy.length}/100 characters
+              <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
+                <span className="text-xs text-gray-500">Keep it concise and impactful</span>
+                <span className="text-xs font-medium text-gray-600">
+                  {bannerCopy.length}/100
+                </span>
               </div>
             </div>
           </div>
 
           {/* Style Selection */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-gray-900">Style</Label>
-            <div className="bg-white rounded-md p-4 border">
+            <Label className="text-sm font-semibold text-gray-900">Design Style</Label>
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
               <RadioGroup value={selectedStyle} onValueChange={setSelectedStyle} className="space-y-3">
                 {bannerStyles.map((style) => (
-                  <div key={style.id} className="flex items-center space-x-2">
-                    <RadioGroupItem value={style.id} id={style.id} />
-                    <Label htmlFor={style.id} className="text-sm cursor-pointer">{style.name}</Label>
+                  <div key={style.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white transition-colors">
+                    <RadioGroupItem value={style.id} id={style.id} className="border-2" />
+                    <Label htmlFor={style.id} className="text-sm font-medium cursor-pointer">{style.name}</Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
           </div>
 
-          {/* Flavor Selection */}
+          {/* Image Type Selection */}
           <div className="space-y-3">
-            <Label className="text-sm font-medium text-gray-900">Image Type</Label>
-            <div className="bg-white rounded-md p-4 border">
+            <Label className="text-sm font-semibold text-gray-900">Image Style</Label>
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-200">
               <RadioGroup value={selectedFlavor} onValueChange={setSelectedFlavor} className="space-y-3">
                 {bannerFlavors.map((flavor) => (
-                  <div key={flavor.id} className="flex items-center space-x-2">
-                    <RadioGroupItem value={flavor.id} id={flavor.id} />
-                    <Label htmlFor={flavor.id} className="text-sm cursor-pointer">{flavor.name}</Label>
+                  <div key={flavor.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-white transition-colors">
+                    <RadioGroupItem value={flavor.id} id={flavor.id} className="border-2" />
+                    <Label htmlFor={flavor.id} className="text-sm font-medium cursor-pointer">{flavor.name}</Label>
                   </div>
                 ))}
               </RadioGroup>
             </div>
           </div>
 
-          {/* Selected Partner Info */}
+          {/* Selected Partner Preview */}
           {selectedPartner && (
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-              <div className="font-medium text-blue-900 text-sm mb-1">{selectedPartner.name}</div>
-              <div className="text-blue-700 text-xs">
-                {formatRegions(selectedPartner.regions)} • {selectedPartner.status}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-purple-400 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <span className="text-white text-sm font-bold">{selectedPartner.name[0]}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-blue-900 text-sm">{selectedPartner.name}</div>
+                  <div className="text-blue-700 text-xs mt-1">
+                    {formatRegions(selectedPartner.regions)} • {selectedPartner.status}
+                  </div>
+                  {selectedPartner.description && (
+                    <div className="text-blue-600 text-xs mt-2 line-clamp-2">{selectedPartner.description}</div>
+                  )}
+                </div>
               </div>
-              {selectedPartner.description && (
-                <div className="text-blue-600 text-xs mt-1">{selectedPartner.description}</div>
-              )}
             </div>
           )}
 
           {/* Generation Progress */}
           {isGenerating && (
-            <div className="bg-purple-50 border border-purple-200 rounded-md p-4">
-              <div className="flex items-center mb-2">
-                <Sparkles className="w-4 h-4 text-purple-600 mr-2 animate-pulse" />
-                <span className="text-purple-700 font-medium text-sm">Generating banner...</span>
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
+              <div className="flex items-center mb-3">
+                <Sparkles className="w-5 h-5 text-purple-600 mr-3 animate-pulse" />
+                <span className="text-purple-700 font-semibold text-sm">Creating your banner...</span>
               </div>
-              <Progress value={progress} className="h-2" />
+              <Progress value={progress} className="h-2 bg-purple-100" />
+              <p className="text-purple-600 text-xs mt-2">This usually takes a few seconds</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Fixed Generate Button at Bottom */}
-      <div className="flex-shrink-0 p-6 border-t bg-white">
+      {/* Fixed Generate Button */}
+      <div className="flex-shrink-0 p-8 border-t border-gray-100 bg-white rounded-b-2xl">
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !isFormValid || partnersLoading}
-          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+          className="w-full h-14 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-200"
           size="lg"
         >
           {isGenerating ? (
             <div className="flex items-center">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Generating...
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+              Generating Banner...
             </div>
           ) : (
             <>
-              <Wand2 className="w-4 h-4 mr-2" />
+              <Wand2 className="w-5 h-5 mr-3" />
               Generate Banner
             </>
           )}
         </Button>
+        {!isFormValid && !isGenerating && (
+          <p className="text-xs text-gray-500 text-center mt-3">
+            Please fill in all required fields to generate your banner
+          </p>
+        )}
       </div>
     </div>
   );

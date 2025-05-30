@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Wand2, Download, ChevronLeft, ChevronRight, Minimize2, Maximize2 } from 'lucide-react';
+import { Wand2, Download, ChevronLeft, ChevronRight, RefreshCw, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -130,7 +129,6 @@ const BannerGeneration = () => {
 
   const handleIteration = (message: string) => {
     console.log('Iteration request:', message);
-    // Here you would implement the AI iteration logic
     toast({
       title: "Iteration request received",
       description: "AI is processing your changes...",
@@ -183,94 +181,83 @@ const BannerGeneration = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 p-6">
+    <div className="h-[calc(100vh-8rem)] flex gap-8 p-8 bg-gradient-to-br from-gray-50 to-blue-50">
       {/* Left Column - Chat (when generated) or Inputs (when not generated) */}
-      <div className={`transition-all duration-300 ${isInputMinimized ? 'w-80' : 'w-96'} flex-shrink-0`}>
+      <div className={`transition-all duration-300 ${hasGenerated ? 'w-96' : 'w-[420px]'} flex-shrink-0`}>
         {hasGenerated ? (
-          <div className="h-full">
-            <BannerChat
-              onIterationRequest={handleIteration}
-              isGenerating={isGenerating}
-            />
-          </div>
+          <BannerChat
+            onIterationRequest={handleIteration}
+            isGenerating={isGenerating}
+          />
         ) : (
-          <Card className="h-full shadow-lg">
-            <CardHeader className="pb-4 border-b">
-              <CardTitle className="text-lg font-bold flex items-center">
-                <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
-                Banner Setup
-              </CardTitle>
-              <CardDescription className="text-sm text-gray-600">Configure your banner</CardDescription>
-            </CardHeader>
-
-            <CardContent className="p-0 flex-1 overflow-hidden">
-              <BannerFormInputs
-                selectedPartnerId={selectedPartnerId}
-                setSelectedPartnerId={setSelectedPartnerId}
-                bannerType={bannerType}
-                setBannerType={setBannerType}
-                promotionDiscount={promotionDiscount}
-                setPromotionDiscount={setPromotionDiscount}
-                bannerCopy={bannerCopy}
-                setBannerCopy={setBannerCopy}
-                selectedStyle={selectedStyle}
-                setSelectedStyle={setSelectedStyle}
-                selectedFlavor={selectedFlavor}
-                setSelectedFlavor={setSelectedFlavor}
-                partners={partners}
-                partnersLoading={partnersLoading}
-                selectedPartner={selectedPartner}
-                isGenerating={isGenerating}
-                progress={progress}
-                onGenerate={generateBannerOptions}
-              />
-            </CardContent>
-          </Card>
+          <BannerFormInputs
+            selectedPartnerId={selectedPartnerId}
+            setSelectedPartnerId={setSelectedPartnerId}
+            bannerType={bannerType}
+            setBannerType={setBannerType}
+            promotionDiscount={promotionDiscount}
+            setPromotionDiscount={setPromotionDiscount}
+            bannerCopy={bannerCopy}
+            setBannerCopy={setBannerCopy}
+            selectedStyle={selectedStyle}
+            setSelectedStyle={setSelectedStyle}
+            selectedFlavor={selectedFlavor}
+            setSelectedFlavor={setSelectedFlavor}
+            partners={partners}
+            partnersLoading={partnersLoading}
+            selectedPartner={selectedPartner}
+            isGenerating={isGenerating}
+            progress={progress}
+            onGenerate={generateBannerOptions}
+          />
         )}
       </div>
 
-      {/* Right Column - Generated Banners & Form Summary */}
+      {/* Right Column - Generated Banners & Configuration Summary */}
       <div className="flex-1 flex flex-col gap-6 min-w-0">
-        {/* Form Summary (when generated and minimized) */}
+        {/* Configuration Summary (when generated) */}
         {hasGenerated && (
-          <Card className="shadow-lg">
-            <CardHeader className="pb-4 border-b">
+          <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl">
+            <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold flex items-center">
-                  <Wand2 className="w-5 h-5 mr-2 text-blue-600" />
-                  Configuration
-                </CardTitle>
-                <Button variant="outline" size="sm" onClick={resetForm}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Banner Configuration</CardTitle>
+                </div>
+                <Button variant="outline" size="sm" onClick={resetForm} className="rounded-lg border-gray-200 hover:bg-gray-50">
+                  <RefreshCw className="w-4 h-4 mr-2" />
                   New Banner
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="p-4">
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-700">Partner:</span> 
-                    <span className="ml-1 text-gray-900">{selectedPartner?.name}</span>
+            <CardContent className="p-6 pt-0">
+              <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-gray-700 text-sm">Partner</span>
+                    <p className="text-gray-900 font-medium">{selectedPartner?.name}</p>
                   </div>
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-700">Type:</span> 
-                    <span className="ml-1 text-gray-900">
+                  <div className="space-y-1">
+                    <span className="font-semibold text-gray-700 text-sm">Type</span>
+                    <p className="text-gray-900 font-medium">
                       {bannerType}
-                      {bannerType === 'promotion' && ` (${promotionDiscount}%)`}
-                    </span>
+                      {bannerType === 'promotion' && ` (${promotionDiscount}% off)`}
+                    </p>
                   </div>
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-700">Style:</span> 
-                    <span className="ml-1 text-gray-900">{selectedStyle}</span>
+                  <div className="space-y-1">
+                    <span className="font-semibold text-gray-700 text-sm">Style</span>
+                    <p className="text-gray-900 font-medium">{selectedStyle}</p>
                   </div>
-                  <div className="text-sm">
-                    <span className="font-medium text-gray-700">Image:</span> 
-                    <span className="ml-1 text-gray-900">{selectedFlavor}</span>
+                  <div className="space-y-1">
+                    <span className="font-semibold text-gray-700 text-sm">Image Type</span>
+                    <p className="text-gray-900 font-medium">{selectedFlavor}</p>
                   </div>
                 </div>
-                <div className="text-sm border-t pt-3">
-                  <span className="font-medium text-gray-700">Copy:</span> 
-                  <span className="ml-1 text-gray-900">"{bannerCopy}"</span>
+                <div className="border-t border-gray-200 pt-4">
+                  <span className="font-semibold text-gray-700 text-sm">Banner Text</span>
+                  <p className="text-gray-900 font-medium mt-1">"{bannerCopy}"</p>
                 </div>
               </div>
             </CardContent>
@@ -279,10 +266,15 @@ const BannerGeneration = () => {
 
         {/* Banner Preview */}
         {hasGenerated && currentOption ? (
-          <Card className="shadow-lg flex-1">
+          <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl flex-1">
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold">Generated Banner</CardTitle>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <Wand2 className="w-4 h-4 text-white" />
+                  </div>
+                  <CardTitle className="text-lg font-semibold text-gray-900">Generated Banner</CardTitle>
+                </div>
                 {generatedOptions.length > 1 && (
                   <div className="flex items-center gap-2">
                     <Button
@@ -290,10 +282,11 @@ const BannerGeneration = () => {
                       size="sm"
                       onClick={() => setCurrentOptionIndex(Math.max(0, currentOptionIndex - 1))}
                       disabled={currentOptionIndex === 0}
+                      className="rounded-lg"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </Button>
-                    <span className="text-sm font-medium">
+                    <span className="text-sm font-medium px-3">
                       {currentOptionIndex + 1} of {generatedOptions.length}
                     </span>
                     <Button
@@ -301,6 +294,7 @@ const BannerGeneration = () => {
                       size="sm"
                       onClick={() => setCurrentOptionIndex(Math.min(generatedOptions.length - 1, currentOptionIndex + 1))}
                       disabled={currentOptionIndex === generatedOptions.length - 1}
+                      className="rounded-lg"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </Button>
@@ -308,66 +302,74 @@ const BannerGeneration = () => {
                 )}
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6 p-6 pt-0">
               {/* Desktop Preview */}
-              <div>
-                <div className="text-sm font-medium mb-2 text-gray-700">Desktop (1440x338px)</div>
-                <div className="bg-gray-50 rounded-md p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-700">Desktop Version</h4>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">1440×338px</span>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                   <img
                     src={currentOption.desktopUrl}
                     alt="Desktop Banner"
-                    className="w-full rounded border"
+                    className="w-full rounded-lg border border-gray-200 shadow-sm"
                   />
                 </div>
               </div>
 
               {/* Mobile Preview */}
-              <div>
-                <div className="text-sm font-medium mb-2 text-gray-700">Mobile (984x450px)</div>
-                <div className="bg-gray-50 rounded-md p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-gray-700">Mobile Version</h4>
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">984×450px</span>
+                </div>
+                <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                   <img
                     src={currentOption.mobileUrl}
                     alt="Mobile Banner"
-                    className="w-full max-w-md mx-auto rounded border"
+                    className="w-full max-w-sm mx-auto rounded-lg border border-gray-200 shadow-sm"
                   />
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <Button
                   onClick={() => downloadBanner('desktop')}
-                  className="bg-blue-600 hover:bg-blue-700"
-                  size="sm"
+                  className="bg-blue-600 hover:bg-blue-700 rounded-xl flex-1"
+                  size="lg"
                 >
-                  <Download className="w-4 h-4 mr-1" />
-                  Desktop
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Desktop
                 </Button>
                 <Button
                   onClick={() => downloadBanner('mobile')}
-                  className="bg-green-600 hover:bg-green-700"
-                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 rounded-xl flex-1"
+                  size="lg"
                 >
-                  <Download className="w-4 h-4 mr-1" />
-                  Mobile
+                  <Download className="w-4 h-4 mr-2" />
+                  Download Mobile
                 </Button>
                 <Button
                   onClick={saveBanner}
-                  className="bg-purple-600 hover:bg-purple-700"
-                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-700 rounded-xl"
+                  size="lg"
                 >
-                  Save
+                  Save Project
                 </Button>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <Card className="flex-1 shadow-lg">
+          <Card className="flex-1 bg-white/60 backdrop-blur-sm shadow-lg border-0 rounded-2xl">
             <CardContent className="flex items-center justify-center h-full">
-              <div className="text-center text-gray-500">
-                <Wand2 className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <h3 className="text-lg font-medium mb-2 text-gray-700">Ready to Generate</h3>
-                <p className="text-gray-600">Fill in the form and generate your banner</p>
+              <div className="text-center">
+                <div className="w-20 h-20 bg-gradient-to-r from-purple-100 to-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Wand2 className="w-10 h-10 text-purple-600" />
+                </div>
+                <h3 className="text-xl font-semibold mb-3 text-gray-900">Ready to Create Magic</h3>
+                <p className="text-gray-600 max-w-md">Fill out the form on the left to generate your perfect banner design in seconds</p>
               </div>
             </CardContent>
           </Card>
