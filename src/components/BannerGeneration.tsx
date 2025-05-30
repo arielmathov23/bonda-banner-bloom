@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Wand2, Download, RefreshCw, Edit3, Copy, Type, Palette, Sparkles } from 'lucide-react';
+import { Wand2, Download, RefreshCw, Edit3, Copy, Type, Palette, Sparkles, Tag, Image } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
 
@@ -17,6 +19,8 @@ interface BannerOption {
   mobileUrl: string;
   style: string;
   copy: string;
+  bannerType: string;
+  flavor: string;
 }
 
 interface GeneratedBanner {
@@ -30,6 +34,11 @@ interface GeneratedBanner {
 
 const BannerGeneration = () => {
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [bannerType, setBannerType] = useState('');
+  const [promotionDiscount, setPromotionDiscount] = useState('');
+  const [bannerCopy, setBannerCopy] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState('');
+  const [selectedFlavor, setSelectedFlavor] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [generatedOptions, setGeneratedOptions] = useState<BannerOption[]>([]);
@@ -38,16 +47,35 @@ const BannerGeneration = () => {
   const [isInArtboard, setIsInArtboard] = useState(false);
   const [savedBanners, setSavedBanners] = useState<GeneratedBanner[]>([]);
 
-  // Use the real partners from the database
   const { partners, isLoading: partnersLoading } = usePartners();
 
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
 
+  const bannerStyles = [
+    { id: 'bold', name: 'Bold & Dynamic', description: 'Strong colors and bold typography' },
+    { id: 'minimal', name: 'Minimal', description: 'Clean and simple design' },
+    { id: 'vibrant', name: 'Vibrant', description: 'Colorful and energetic design' }
+  ];
+
+  const bannerFlavors = [
+    { id: 'contextual', name: 'Contextual', description: 'Lifestyle or situational imagery' },
+    { id: 'product', name: 'Product Photo', description: 'Focus on product imagery' }
+  ];
+
   const generateBannerOptions = async () => {
-    if (!selectedPartnerId) {
+    if (!selectedPartnerId || !bannerType || !bannerCopy || !selectedStyle || !selectedFlavor) {
       toast({
-        title: "No partner selected",
-        description: "Please select a partner first",
+        title: "Missing information",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (bannerType === 'promotion' && !promotionDiscount) {
+      toast({
+        title: "Missing discount",
+        description: "Please enter the promotion discount percentage",
         variant: "destructive"
       });
       return;
@@ -70,36 +98,32 @@ const BannerGeneration = () => {
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Generate 3 banner options with different styles
-      const options: BannerOption[] = [
-        {
-          id: '1',
-          desktopUrl: `https://via.placeholder.com/720x169/4A90E2/FFFFFF?text=${encodeURIComponent(selectedPartner?.name || '')}+Style+1`,
-          mobileUrl: `https://via.placeholder.com/492x225/4A90E2/FFFFFF?text=${encodeURIComponent(selectedPartner?.name || '')}+Mobile+1`,
-          style: 'Bold & Dynamic',
-          copy: 'Get exclusive benefits today!'
-        },
-        {
-          id: '2',
-          desktopUrl: `https://via.placeholder.com/720x169/50E3C2/FFFFFF?text=${encodeURIComponent(selectedPartner?.name || '')}+Style+2`,
-          mobileUrl: `https://via.placeholder.com/492x225/50E3C2/FFFFFF?text=${encodeURIComponent(selectedPartner?.name || '')}+Mobile+2`,
-          style: 'Clean & Minimal',
-          copy: 'Discover amazing offers now!'
-        },
-        {
-          id: '3',
-          desktopUrl: `https://via.placeholder.com/720x169/9B59B6/FFFFFF?text=${encodeURIComponent(selectedPartner?.name || '')}+Style+3`,
-          mobileUrl: `https://via.placeholder.com/492x225/9B59B6/FFFFFF?text=${encodeURIComponent(selectedPartner?.name || '')}+Mobile+3`,
-          style: 'Creative & Vibrant',
-          copy: 'Join now for special deals!'
-        }
-      ];
+      // Create AI prompt based on user inputs
+      const styleDescription = bannerStyles.find(s => s.id === selectedStyle)?.name || selectedStyle;
+      const flavorDescription = bannerFlavors.find(f => f.id === selectedFlavor)?.name || selectedFlavor;
+      const typeDescription = bannerType === 'promotion' ? `promotion with ${promotionDiscount}% discount` : 'general';
+      
+      console.log(`AI Prompt: Create a ${styleDescription} banner for ${selectedPartner?.name} with ${flavorDescription} imagery. Banner type: ${typeDescription}. Copy: "${bannerCopy}"`);
 
-      setGeneratedOptions(options);
+      // Generate banner option based on user specifications
+      const option: BannerOption = {
+        id: '1',
+        desktopUrl: `https://via.placeholder.com/720x169/4A90E2/FFFFFF?text=${encodeURIComponent(`${selectedPartner?.name || ''} - ${styleDescription} - ${bannerCopy.substring(0, 20)}...`)}`,
+        mobileUrl: `https://via.placeholder.com/492x225/4A90E2/FFFFFF?text=${encodeURIComponent(`${selectedPartner?.name || ''} - Mobile`)}`,
+        style: styleDescription,
+        copy: bannerCopy,
+        bannerType: typeDescription,
+        flavor: flavorDescription
+      };
+
+      setGeneratedOptions([option]);
+      setSelectedOption(option);
+      setCustomCopy(bannerCopy);
+      setIsInArtboard(true);
 
       toast({
-        title: "Banner options generated!",
-        description: `3 banner variations created for ${selectedPartner?.name}`,
+        title: "Banner generated!",
+        description: `Banner created for ${selectedPartner?.name} with your specifications`,
       });
 
     } catch (error) {
@@ -150,6 +174,11 @@ const BannerGeneration = () => {
     setSelectedOption(null);
     setGeneratedOptions([]);
     setSelectedPartnerId('');
+    setBannerType('');
+    setPromotionDiscount('');
+    setBannerCopy('');
+    setSelectedStyle('');
+    setSelectedFlavor('');
     setCustomCopy('');
 
     toast({
@@ -184,7 +213,7 @@ const BannerGeneration = () => {
               <CardDescription>Customize your banner and download</CardDescription>
             </div>
             <Button variant="outline" onClick={backToOptions}>
-              Back to Options
+              Back to Generate
             </Button>
           </div>
         </CardHeader>
@@ -235,9 +264,17 @@ const BannerGeneration = () => {
             />
             <div className="flex justify-between items-center text-sm text-gray-500">
               <span>Characters: {customCopy.length}/100</span>
-              <Badge variant="outline" className="text-xs">
-                {selectedOption.style}
-              </Badge>
+              <div className="flex space-x-2">
+                <Badge variant="outline" className="text-xs">
+                  {selectedOption.style}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {selectedOption.bannerType}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {selectedOption.flavor}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -291,24 +328,23 @@ const BannerGeneration = () => {
 
   return (
     <div className="space-y-6">
-      {/* Partner Selection & Generation */}
+      {/* Banner Configuration Form */}
       <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl font-bold text-gray-900 flex items-center">
             <Wand2 className="w-6 h-6 mr-2 text-blue-600" />
             AI Banner Generation
           </CardTitle>
-          <CardDescription>Select a partner and generate banner options</CardDescription>
+          <CardDescription>Configure your banner specifications for optimal AI generation</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
+            {/* Partner Selection */}
             <div>
-              <Label htmlFor="partner">Select Partner *</Label>
+              <Label htmlFor="partner">1. Select Partner *</Label>
               {partnersLoading ? (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-2">
-                  <p className="text-blue-800 text-sm">
-                    Loading partners...
-                  </p>
+                  <p className="text-blue-800 text-sm">Loading partners...</p>
                 </div>
               ) : partners.length === 0 ? (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-2">
@@ -318,7 +354,7 @@ const BannerGeneration = () => {
                 </div>
               ) : (
                 <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                  <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500">
+                  <SelectTrigger className="bg-white/50 border-gray-200 focus:border-blue-500 mt-2">
                     <SelectValue placeholder="Choose a partner from your database" />
                   </SelectTrigger>
                   <SelectContent className="bg-white shadow-lg border border-gray-200 z-50">
@@ -340,9 +376,106 @@ const BannerGeneration = () => {
               )}
             </div>
 
+            {/* Banner Type */}
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block flex items-center">
+                <Tag className="w-4 h-4 mr-2" />
+                2. Banner Type *
+              </Label>
+              <RadioGroup value={bannerType} onValueChange={setBannerType}>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="general" id="general" />
+                  <Label htmlFor="general">General Banner</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="promotion" id="promotion" />
+                  <Label htmlFor="promotion">Promotion Banner (with discount)</Label>
+                </div>
+              </RadioGroup>
+              
+              {bannerType === 'promotion' && (
+                <div className="mt-3">
+                  <Label htmlFor="discount">Discount Percentage *</Label>
+                  <Input
+                    id="discount"
+                    type="number"
+                    placeholder="e.g., 20"
+                    value={promotionDiscount}
+                    onChange={(e) => setPromotionDiscount(e.target.value)}
+                    className="bg-white/50 border-gray-200 focus:border-blue-500 mt-1"
+                    min="1"
+                    max="100"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Banner Copy */}
+            <div>
+              <Label htmlFor="bannerCopy" className="text-sm font-medium text-gray-700 mb-2 block flex items-center">
+                <Type className="w-4 h-4 mr-2" />
+                3. Banner Copy *
+              </Label>
+              <Textarea
+                id="bannerCopy"
+                value={bannerCopy}
+                onChange={(e) => setBannerCopy(e.target.value)}
+                placeholder="Enter the text that will appear on your banner..."
+                className="bg-white/50 border-gray-200 focus:border-blue-500 resize-none"
+                rows={3}
+                maxLength={100}
+              />
+              <div className="text-sm text-gray-500 mt-1">
+                Characters: {bannerCopy.length}/100
+              </div>
+            </div>
+
+            {/* Style Selection */}
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block flex items-center">
+                <Palette className="w-4 h-4 mr-2" />
+                4. Banner Style *
+              </Label>
+              <RadioGroup value={selectedStyle} onValueChange={setSelectedStyle}>
+                {bannerStyles.map((style) => (
+                  <div key={style.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                    <RadioGroupItem value={style.id} id={style.id} className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor={style.id} className="font-medium cursor-pointer">
+                        {style.name}
+                      </Label>
+                      <p className="text-sm text-gray-600">{style.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Flavor Selection */}
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-3 block flex items-center">
+                <Image className="w-4 h-4 mr-2" />
+                5. Banner Flavor *
+              </Label>
+              <RadioGroup value={selectedFlavor} onValueChange={setSelectedFlavor}>
+                {bannerFlavors.map((flavor) => (
+                  <div key={flavor.id} className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50">
+                    <RadioGroupItem value={flavor.id} id={flavor.id} className="mt-0.5" />
+                    <div className="flex-1">
+                      <Label htmlFor={flavor.id} className="font-medium cursor-pointer">
+                        {flavor.name}
+                      </Label>
+                      <p className="text-sm text-gray-600">{flavor.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Selected Partner Info */}
             {selectedPartner && (
               <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                <h4 className="font-medium text-blue-900 mb-2">Partner Details</h4>
+                <h4 className="font-medium text-blue-900 mb-2">Selected Partner Details</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-blue-700">Regions:</span>
@@ -362,34 +495,36 @@ const BannerGeneration = () => {
               </div>
             )}
 
+            {/* Generation Progress */}
             {isGenerating && (
               <div className="bg-purple-50 rounded-lg p-4 border border-purple-200">
                 <div className="flex items-center mb-3">
                   <Sparkles className="w-5 h-5 text-purple-600 mr-2 animate-pulse" />
-                  <span className="text-purple-700 font-medium">Generating 3 banner options...</span>
+                  <span className="text-purple-700 font-medium">Generating optimized banner...</span>
                 </div>
                 <Progress value={progress} className="h-2 bg-purple-100" />
                 <p className="text-sm text-purple-600 mt-2">
-                  AI is creating banners with logo, branding, CTA, and copy space
+                  AI is creating banner with your specifications: {selectedStyle && bannerStyles.find(s => s.id === selectedStyle)?.name}, {selectedFlavor && bannerFlavors.find(f => f.id === selectedFlavor)?.name}
                 </p>
               </div>
             )}
 
+            {/* Generate Button */}
             <Button
               onClick={generateBannerOptions}
-              disabled={isGenerating || !selectedPartnerId || partnersLoading}
+              disabled={isGenerating || !selectedPartnerId || !bannerType || !bannerCopy || !selectedStyle || !selectedFlavor || partnersLoading}
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
               size="lg"
             >
               {isGenerating ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Generating Options...
+                  Generating Banner...
                 </div>
               ) : (
                 <>
                   <Wand2 className="w-5 h-5 mr-2" />
-                  Generate 3 Banner Options
+                  Generate Optimized Banner
                 </>
               )}
             </Button>
@@ -397,48 +532,7 @@ const BannerGeneration = () => {
         </CardContent>
       </Card>
 
-      {generatedOptions.length > 0 && (
-        <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-xl font-bold text-gray-900">Choose Your Banner Style</CardTitle>
-            <CardDescription>Select one of the 3 generated options to customize</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {generatedOptions.map((option, index) => (
-                <div
-                  key={option.id}
-                  className="bg-white/50 rounded-lg p-4 border border-gray-200 hover:shadow-lg transition-all duration-200 cursor-pointer hover:scale-105"
-                  onClick={() => selectOption(option)}
-                >
-                  <div className="space-y-3">
-                    <div className="bg-gray-100 rounded-lg p-3">
-                      <img
-                        src={option.desktopUrl}
-                        alt={`Option ${index + 1}`}
-                        className="w-full rounded"
-                      />
-                    </div>
-                    
-                    <div>
-                      <Badge variant="outline" className="text-xs mb-2">
-                        {option.style}
-                      </Badge>
-                      <p className="text-sm text-gray-600">{option.copy}</p>
-                    </div>
-                    
-                    <Button className="w-full" variant="outline">
-                      <Edit3 className="w-4 h-4 mr-2" />
-                      Customize This
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
+      {/* Saved Banners */}
       {savedBanners.length > 0 && (
         <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
           <CardHeader>
@@ -451,9 +545,14 @@ const BannerGeneration = () => {
                 <div key={banner.id} className="bg-white/50 rounded-lg p-4 border border-gray-200">
                   <div className="flex justify-between items-start mb-3">
                     <h4 className="font-medium text-gray-900">{banner.partnerName}</h4>
-                    <Badge variant="outline" className="text-xs">
-                      {banner.selectedOption.style}
-                    </Badge>
+                    <div className="flex space-x-1">
+                      <Badge variant="outline" className="text-xs">
+                        {banner.selectedOption.style}
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        {banner.selectedOption.bannerType}
+                      </Badge>
+                    </div>
                   </div>
                   <p className="text-sm text-gray-600 mb-3">{banner.customCopy}</p>
                   <div className="flex space-x-2">
