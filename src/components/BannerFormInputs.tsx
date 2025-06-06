@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Wand2, Loader } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +14,9 @@ interface Partner {
   id: string;
   name: string;
   partner_url?: string;
+  benefits_description?: string;
   description?: string;
+  reference_banners_urls?: string[];
   status: string;
 }
 
@@ -40,13 +43,13 @@ interface BannerFormInputsProps {
   onGenerate: () => void;
 }
 
-const styleReferences = {
+const defaultStyleReferences = {
   'audaz-y-dinamico': 'https://images.unsplash.com/photo-1460925895917-afdab827c52f',
   'minimalista': 'https://images.unsplash.com/photo-1483058712412-4245e9b90334',
   'vibrante': 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07'
 };
 
-const flavorReferences = {
+const defaultFlavorReferences = {
   'contextual': [
     {
       id: 'contextual-1',
@@ -107,6 +110,54 @@ const BannerFormInputs = ({
 }: BannerFormInputsProps) => {
   const [selectedReferenceImage, setSelectedReferenceImage] = React.useState('');
 
+  // Get partner benefits
+  const getPartnerBenefits = () => {
+    if (!selectedPartner?.benefits_description) return [];
+    return selectedPartner.benefits_description.split('; ').filter(benefit => benefit.trim());
+  };
+
+  // Get partner reference banners for style selection
+  const getPartnerReferenceBanners = () => {
+    if (!selectedPartner?.reference_banners_urls || selectedPartner.reference_banners_urls.length === 0) {
+      return Object.entries(defaultStyleReferences).map(([key, url]) => ({
+        id: key,
+        url,
+        title: key === 'audaz-y-dinamico' ? '🔥 Audaz y Dinámico' : 
+              key === 'minimalista' ? '✨ Minimalista' : 
+              '🌈 Vibrante'
+      }));
+    }
+    
+    return selectedPartner.reference_banners_urls.map((url, index) => ({
+      id: `partner-banner-${index}`,
+      url,
+      title: `Banner ${index + 1}`
+    }));
+  };
+
+  // Get reference images for flavor selection (using same as style for now)
+  const getFlavorReferences = () => {
+    if (!selectedPartner?.reference_banners_urls || selectedPartner.reference_banners_urls.length === 0) {
+      return defaultFlavorReferences;
+    }
+    
+    // Create contextual and product variants from partner banners
+    const partnerImages = selectedPartner.reference_banners_urls.map((url, index) => ({
+      id: `partner-ref-${index}`,
+      url,
+      title: `Referencia ${index + 1}`
+    }));
+    
+    return {
+      'contextual': partnerImages.slice(0, 3),
+      'foto-de-producto': partnerImages.slice(0, 3)
+    };
+  };
+
+  const partnerBenefits = getPartnerBenefits();
+  const partnerReferenceBanners = getPartnerReferenceBanners();
+  const flavorReferences = getFlavorReferences();
+
   return (
     <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-xl max-w-xl mx-auto">
       <CardHeader className="pb-3">
@@ -124,10 +175,10 @@ const BannerFormInputs = ({
       <CardContent className="space-y-3 p-4 pt-0">
         
         <div className="space-y-1.5">
-          <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Seleccionar Socio *</Label>
+          <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Seleccionar Partner *</Label>
           <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
             <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
-              <SelectValue placeholder={partnersLoading ? "Cargando socios..." : "Elige un socio comercial"} />
+              <SelectValue placeholder={partnersLoading ? "Cargando partners..." : "Elige un partner comercial"} />
             </SelectTrigger>
             <SelectContent>
               {partners.map((partner) => (
@@ -150,22 +201,33 @@ const BannerFormInputs = ({
           )}
         </div>
 
-        {/* Banner Type */}
-        <div className="space-y-1.5">
-          <Label htmlFor="bannerType" className="text-sm font-medium text-gray-700">Tipo de Banner *</Label>
-          <Select value={bannerType} onValueChange={setBannerType}>
-            <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
-              <SelectValue placeholder="Selecciona el tipo de banner" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="promotion">Promocional</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {/* Select Benefit (replaces Banner Type) */}
+        {selectedPartnerId && (
+          <div className="space-y-1.5">
+            <Label htmlFor="benefit" className="text-sm font-medium text-gray-700">Seleccionar el Beneficio *</Label>
+            {partnerBenefits.length > 0 ? (
+              <Select value={bannerType} onValueChange={setBannerType}>
+                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
+                  <SelectValue placeholder="Selecciona el beneficio a destacar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {partnerBenefits.map((benefit, index) => (
+                    <SelectItem key={index} value={benefit}>
+                      {benefit}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-700">Este partner no tiene beneficios configurados. Puedes editarlo para agregar beneficios.</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Promotion Discount (conditional) */}
-        {bannerType === 'promotion' && (
+        {bannerType && bannerType.toLowerCase().includes('descuento') && (
           <div className="space-y-1.5">
             <Label htmlFor="discount" className="text-sm font-medium text-gray-700">Porcentaje de Descuento *</Label>
             <Input
@@ -209,51 +271,53 @@ const BannerFormInputs = ({
           <div className="text-xs text-gray-500 text-right">{ctaCopy.length}/25</div>
         </div>
 
-        {/* Style Selection with Reference Images */}
-        <div className="space-y-1.5">
-          <Label htmlFor="style" className="text-sm font-medium text-gray-700">Estilo Visual *</Label>
-          <Select value={selectedStyle} onValueChange={setSelectedStyle}>
-            <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
-              <SelectValue placeholder="Elige el estilo del banner" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="audaz-y-dinamico">🔥 Audaz y Dinámico</SelectItem>
-              <SelectItem value="minimalista">✨ Minimalista</SelectItem>
-              <SelectItem value="vibrante">🌈 Vibrante</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {/* Reference Image */}
-          {selectedStyle && styleReferences[selectedStyle as keyof typeof styleReferences] && (
-            <div className="mt-2">
-              <p className="text-xs text-gray-600 mb-1">Imagen de referencia:</p>
-              <div className="w-full h-20 rounded-md overflow-hidden bg-gray-100">
-                <img 
-                  src={styleReferences[selectedStyle as keyof typeof styleReferences]} 
-                  alt={`Referencia de estilo ${selectedStyle}`}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+        {/* Style Selection with Partner Reference Banners */}
+        {selectedPartnerId && (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium text-gray-700">Estilo Visual *</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {partnerReferenceBanners.map((banner) => (
+                <div
+                  key={banner.id}
+                  className={`cursor-pointer rounded-lg border-2 transition-all ${
+                    selectedStyle === banner.id 
+                      ? 'border-blue-500 ring-2 ring-blue-200' 
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                  onClick={() => setSelectedStyle(banner.id)}
+                >
+                  <div className="aspect-video rounded-md overflow-hidden">
+                    <img 
+                      src={banner.url}
+                      alt={banner.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-xs text-center text-gray-600 py-1">{banner.title}</p>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Flavor Selection */}
-        <div className="space-y-1.5">
-          <Label htmlFor="flavor" className="text-sm font-medium text-gray-700">Tipo de Imagen *</Label>
-          <Select value={selectedFlavor} onValueChange={(value) => {
-            setSelectedFlavor(value);
-            setSelectedReferenceImage(''); // Reset reference image when flavor changes
-          }}>
-            <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
-              <SelectValue placeholder="Selecciona el tipo de imagen" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="contextual">🏪 Contextual</SelectItem>
-              <SelectItem value="foto-de-producto">📦 Foto de Producto</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        {selectedPartnerId && (
+          <div className="space-y-1.5">
+            <Label htmlFor="flavor" className="text-sm font-medium text-gray-700">Tipo de Imagen *</Label>
+            <Select value={selectedFlavor} onValueChange={(value) => {
+              setSelectedFlavor(value);
+              setSelectedReferenceImage(''); // Reset reference image when flavor changes
+            }}>
+              <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
+                <SelectValue placeholder="Selecciona el tipo de imagen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="contextual">🏪 Contextual</SelectItem>
+                <SelectItem value="foto-de-producto">📦 Foto de Producto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {/* Reference Images for Flavor Selection */}
         {selectedFlavor && flavorReferences[selectedFlavor as keyof typeof flavorReferences] && (
