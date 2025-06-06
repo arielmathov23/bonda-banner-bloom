@@ -135,28 +135,22 @@ const BannerFormInputs = ({
     }));
   };
 
-  // Get reference images for flavor selection (using same as style for now)
-  const getFlavorReferences = () => {
+  // Get partner reference images for image type selection
+  const getPartnerReferenceImages = () => {
     if (!selectedPartner?.reference_banners_urls || selectedPartner.reference_banners_urls.length === 0) {
-      return defaultFlavorReferences;
+      return [];
     }
     
-    // Create contextual and product variants from partner banners
-    const partnerImages = selectedPartner.reference_banners_urls.map((url, index) => ({
-      id: `partner-ref-${index}`,
+    return selectedPartner.reference_banners_urls.map((url, index) => ({
+      id: `partner-image-${index}`,
       url,
       title: `Referencia ${index + 1}`
     }));
-    
-    return {
-      'contextual': partnerImages.slice(0, 3),
-      'foto-de-producto': partnerImages.slice(0, 3)
-    };
   };
 
   const partnerBenefits = getPartnerBenefits();
   const partnerReferenceBanners = getPartnerReferenceBanners();
-  const flavorReferences = getFlavorReferences();
+  const partnerReferenceImages = getPartnerReferenceImages();
 
   return (
     <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-xl max-w-xl mx-auto">
@@ -174,10 +168,11 @@ const BannerFormInputs = ({
       
       <CardContent className="space-y-3 p-4 pt-0">
         
+        {/* Partner Selection */}
         <div className="space-y-1.5">
           <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Seleccionar Partner *</Label>
           <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-            <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
+            <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9 w-full">
               <SelectValue placeholder={partnersLoading ? "Cargando partners..." : "Elige un partner comercial"} />
             </SelectTrigger>
             <SelectContent>
@@ -207,7 +202,7 @@ const BannerFormInputs = ({
             <Label htmlFor="benefit" className="text-sm font-medium text-gray-700">Seleccionar el Beneficio *</Label>
             {partnerBenefits.length > 0 ? (
               <Select value={bannerType} onValueChange={setBannerType}>
-                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
+                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9 w-full">
                   <SelectValue placeholder="Selecciona el beneficio a destacar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -300,31 +295,56 @@ const BannerFormInputs = ({
           </div>
         )}
 
-        {/* Flavor Selection */}
+        {/* Image Type Selection with Partner Reference Images */}
         {selectedPartnerId && (
           <div className="space-y-1.5">
-            <Label htmlFor="flavor" className="text-sm font-medium text-gray-700">Tipo de Imagen *</Label>
-            <Select value={selectedFlavor} onValueChange={(value) => {
-              setSelectedFlavor(value);
-              setSelectedReferenceImage(''); // Reset reference image when flavor changes
-            }}>
-              <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
-                <SelectValue placeholder="Selecciona el tipo de imagen" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="contextual">🏪 Contextual</SelectItem>
-                <SelectItem value="foto-de-producto">📦 Foto de Producto</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium text-gray-700">Tipo de Imagen *</Label>
+            {partnerReferenceImages.length > 0 ? (
+              <div className="grid grid-cols-3 gap-2">
+                {partnerReferenceImages.map((image) => (
+                  <div
+                    key={image.id}
+                    className={`cursor-pointer rounded-lg border-2 transition-all ${
+                      selectedFlavor === image.id 
+                        ? 'border-blue-500 ring-2 ring-blue-200' 
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedFlavor(image.id)}
+                  >
+                    <div className="aspect-video rounded-md overflow-hidden">
+                      <img 
+                        src={image.url}
+                        alt={image.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <p className="text-xs text-center text-gray-600 py-1">{image.title}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Select value={selectedFlavor} onValueChange={(value) => {
+                setSelectedFlavor(value);
+                setSelectedReferenceImage('');
+              }}>
+                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
+                  <SelectValue placeholder="Selecciona el tipo de imagen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="contextual">🏪 Contextual</SelectItem>
+                  <SelectItem value="foto-de-producto">📦 Foto de Producto</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         )}
 
-        {/* Reference Images for Flavor Selection */}
-        {selectedFlavor && flavorReferences[selectedFlavor as keyof typeof flavorReferences] && (
+        {/* Reference Images for Flavor Selection (only if using default options) */}
+        {selectedFlavor && !partnerReferenceImages.length && defaultFlavorReferences[selectedFlavor as keyof typeof defaultFlavorReferences] && (
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Imagen de Referencia *</Label>
             <div className="grid grid-cols-3 gap-2">
-              {flavorReferences[selectedFlavor as keyof typeof flavorReferences].map((ref) => (
+              {defaultFlavorReferences[selectedFlavor as keyof typeof defaultFlavorReferences].map((ref) => (
                 <div
                   key={ref.id}
                   className={`cursor-pointer rounded-lg border-2 transition-all ${
