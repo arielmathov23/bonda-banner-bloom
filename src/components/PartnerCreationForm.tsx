@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upload, Check, AlertCircle, Download, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -239,12 +238,13 @@ const PartnerCreationForm = () => {
             
             {/* Add Benefit Input */}
             <div className="flex gap-2">
-              <Input
+              <Textarea
                 value={currentBenefit}
                 onChange={(e) => setCurrentBenefit(e.target.value)}
                 placeholder="ej. 20% de descuento, envío gratis..."
-                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors flex-1"
-                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addBenefit())}
+                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors flex-1 resize-none"
+                rows={2}
+                onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), addBenefit())}
               />
               <Button
                 type="button"
@@ -252,9 +252,9 @@ const PartnerCreationForm = () => {
                 disabled={!currentBenefit.trim()}
                 variant="outline"
                 size="sm"
-                className="px-3"
+                className="px-4 h-fit self-center"
               >
-                <Plus className="w-4 h-4" />
+                Agregar Beneficio
               </Button>
             </div>
 
@@ -336,47 +336,48 @@ const PartnerCreationForm = () => {
           {/* Brand Manual */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Manual de Marca (CSV)</Label>
-            <div className="space-y-3">
-              <Button
-                type="button"
-                onClick={downloadBrandManualTemplate}
-                className="w-full justify-center bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Descargar Plantilla CSV
-              </Button>
-              
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
-                <div className="text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <div className="space-y-3">
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-600">Subir manual de marca completado (CSV)</p>
-                    <p className="text-xs text-gray-500">Completa la plantilla con colores y fuentes de marca</p>
+                    <p className="text-sm text-gray-600">Si no tenés manual de Marca, bajá esta plantilla y completá los colores principales</p>
+                    <Button
+                      type="button"
+                      onClick={downloadBrandManualTemplate}
+                      className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Descargar Plantilla CSV
+                    </Button>
                   </div>
-                  <input
-                    type="file"
-                    id="brandManual"
-                    className="hidden"
-                    accept=".csv"
-                    onChange={handleBrandManualUpload}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => document.getElementById('brandManual')?.click()}
-                  >
-                    Subir Manual de Marca
-                  </Button>
+                  <div className="border-t border-gray-200 pt-3">
+                    <p className="text-xs text-gray-500">O subir manual de marca completado (CSV)</p>
+                    <input
+                      type="file"
+                      id="brandManual"
+                      className="hidden"
+                      accept=".csv"
+                      onChange={handleBrandManualUpload}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => document.getElementById('brandManual')?.click()}
+                    >
+                      Subir Manual de Marca
+                    </Button>
+                  </div>
                 </div>
-                
-                {brandManual && (
-                  <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center">
-                    <Check className="w-5 h-5 text-green-600 mr-2" />
-                    <span className="text-sm text-green-700">{brandManual.name}</span>
-                  </div>
-                )}
               </div>
+              
+              {brandManual && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center">
+                  <Check className="w-5 h-5 text-green-600 mr-2" />
+                  <span className="text-sm text-green-700">{brandManual.name}</span>
+                </div>
+              )}
             </div>
           </div>
 
