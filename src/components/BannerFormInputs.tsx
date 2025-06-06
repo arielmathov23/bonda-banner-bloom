@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Wand2, Loader } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -202,13 +201,15 @@ const BannerFormInputs = ({
             <Label htmlFor="benefit" className="text-sm font-medium text-gray-700">Seleccionar el Beneficio *</Label>
             {partnerBenefits.length > 0 ? (
               <Select value={bannerType} onValueChange={setBannerType}>
-                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9 w-full">
+                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-auto min-h-[36px] w-full">
                   <SelectValue placeholder="Selecciona el beneficio a destacar" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-w-[520px]">
                   {partnerBenefits.map((benefit, index) => (
-                    <SelectItem key={index} value={benefit}>
-                      {benefit}
+                    <SelectItem key={index} value={benefit} className="whitespace-normal text-wrap max-w-full">
+                      <div className="py-1 leading-5 break-words">
+                        {benefit}
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
