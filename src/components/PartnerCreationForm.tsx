@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Upload, Check, AlertCircle, Download, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,12 @@ const PartnerCreationForm = () => {
   const [referenceBanners, setReferenceBanners] = useState<File[]>([]);
   const [referencePhotos, setReferencePhotos] = useState<File[]>([]);
   const [currentBenefit, setCurrentBenefit] = useState('');
+  const [dragStates, setDragStates] = useState({
+    logo: false,
+    brandManual: false,
+    referenceBanners: false,
+    referencePhotos: false,
+  });
 
   const regions = [
     { id: 'argentina-uruguay', label: 'Argentina & Uruguay', description: 'Tono: Local, familiar' },
@@ -72,6 +79,50 @@ const PartnerCreationForm = () => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleDragOver = (e: React.DragEvent, section: string) => {
+    e.preventDefault();
+    setDragStates(prev => ({ ...prev, [section]: true }));
+  };
+
+  const handleDragLeave = (e: React.DragEvent, section: string) => {
+    e.preventDefault();
+    setDragStates(prev => ({ ...prev, [section]: false }));
+  };
+
+  const handleDrop = (e: React.DragEvent, section: string) => {
+    e.preventDefault();
+    setDragStates(prev => ({ ...prev, [section]: false }));
+    
+    const files = Array.from(e.dataTransfer.files);
+    
+    switch (section) {
+      case 'logo':
+        const logoFile = files[0];
+        if (logoFile && logoFile.type.includes('png') && logoFile.size <= 5 * 1024 * 1024) {
+          setLogo(logoFile);
+        }
+        break;
+      case 'brandManual':
+        const brandFile = files[0];
+        if (brandFile && brandFile.type.includes('csv')) {
+          setBrandManual(brandFile);
+        }
+        break;
+      case 'referenceBanners':
+        const bannerFiles = files.filter(file => 
+          file.type.includes('image/') && file.size <= 10 * 1024 * 1024
+        );
+        setReferenceBanners(prev => [...prev, ...bannerFiles]);
+        break;
+      case 'referencePhotos':
+        const photoFiles = files.filter(file => 
+          file.type.includes('image/') && file.size <= 10 * 1024 * 1024
+        );
+        setReferencePhotos(prev => [...prev, ...photoFiles]);
+        break;
+    }
   };
 
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,20 +281,20 @@ const PartnerCreationForm = () => {
           </div>
 
           {/* Benefits Section */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label className="text-sm font-medium text-gray-700">
               Beneficios
               <span className="text-xs text-gray-500 ml-2">(usado para información de copy)</span>
             </Label>
             
             {/* Add Benefit Input */}
-            <div className="flex gap-2">
+            <div className="space-y-3">
               <Textarea
                 value={currentBenefit}
                 onChange={(e) => setCurrentBenefit(e.target.value)}
                 placeholder="ej. 20% de descuento, envío gratis..."
-                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors flex-1 resize-none"
-                rows={2}
+                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors resize-none"
+                rows={3}
                 onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), addBenefit())}
               />
               <Button
@@ -252,7 +303,11 @@ const PartnerCreationForm = () => {
                 disabled={!currentBenefit.trim()}
                 variant="outline"
                 size="sm"
-                className="px-4 h-fit self-center"
+                className={`w-full transition-all duration-200 ${
+                  currentBenefit.trim() 
+                    ? 'bg-brand-500 text-white border-brand-500 hover:bg-brand-600 hover:border-brand-600 shadow-md' 
+                    : 'bg-gray-100 text-gray-400 border-gray-200'
+                }`}
               >
                 Agregar Beneficio
               </Button>
@@ -300,12 +355,21 @@ const PartnerCreationForm = () => {
           {/* Logo Upload */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Logo del Partner (PNG)</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+            <div 
+              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
+                dragStates.logo 
+                  ? 'border-brand-400 bg-brand-50/50' 
+                  : 'border-gray-300 hover:border-blue-400'
+              }`}
+              onDragOver={(e) => handleDragOver(e, 'logo')}
+              onDragLeave={(e) => handleDragLeave(e, 'logo')}
+              onDrop={(e) => handleDrop(e, 'logo')}
+            >
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Subir logo del partner (formato PNG)</p>
-                  <p className="text-xs text-gray-500">Tamaño máximo: 5MB</p>
+                  <p className="text-sm text-gray-600">Arrastra y suelta el logo aquí o haz clic para subir</p>
+                  <p className="text-xs text-gray-500">Formato PNG, tamaño máximo: 5MB</p>
                 </div>
                 <input
                   type="file"
@@ -336,7 +400,16 @@ const PartnerCreationForm = () => {
           {/* Brand Manual */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">Manual de Marca (CSV)</Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+            <div 
+              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
+                dragStates.brandManual 
+                  ? 'border-brand-400 bg-brand-50/50' 
+                  : 'border-gray-300 hover:border-blue-400'
+              }`}
+              onDragOver={(e) => handleDragOver(e, 'brandManual')}
+              onDragLeave={(e) => handleDragLeave(e, 'brandManual')}
+              onDrop={(e) => handleDrop(e, 'brandManual')}
+            >
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-3">
@@ -352,7 +425,7 @@ const PartnerCreationForm = () => {
                     </Button>
                   </div>
                   <div className="border-t border-gray-200 pt-3">
-                    <p className="text-xs text-gray-500">O subir manual de marca completado (CSV)</p>
+                    <p className="text-xs text-gray-500">Arrastra y suelta el manual aquí o haz clic para subir</p>
                     <input
                       type="file"
                       id="brandManual"
@@ -387,11 +460,20 @@ const PartnerCreationForm = () => {
               Banners de Referencia (Opcional)
               <span className="text-xs text-gray-500 ml-2">(para contexto de IA)</span>
             </Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+            <div 
+              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
+                dragStates.referenceBanners 
+                  ? 'border-brand-400 bg-brand-50/50' 
+                  : 'border-gray-300 hover:border-blue-400'
+              }`}
+              onDragOver={(e) => handleDragOver(e, 'referenceBanners')}
+              onDragLeave={(e) => handleDragLeave(e, 'referenceBanners')}
+              onDrop={(e) => handleDrop(e, 'referenceBanners')}
+            >
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Subir banners existentes para referencia</p>
+                  <p className="text-sm text-gray-600">Arrastra y suelta banners aquí o haz clic para subir</p>
                   <p className="text-xs text-gray-500">Solo imágenes, máximo 10MB cada una. Puedes subir múltiples archivos</p>
                 </div>
                 <input
@@ -440,11 +522,20 @@ const PartnerCreationForm = () => {
               Fotos de Referencia (Opcional)
               <span className="text-xs text-gray-500 ml-2">(para estilo y contexto visual)</span>
             </Label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+            <div 
+              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
+                dragStates.referencePhotos 
+                  ? 'border-brand-400 bg-brand-50/50' 
+                  : 'border-gray-300 hover:border-blue-400'
+              }`}
+              onDragOver={(e) => handleDragOver(e, 'referencePhotos')}
+              onDragLeave={(e) => handleDragLeave(e, 'referencePhotos')}
+              onDrop={(e) => handleDrop(e, 'referencePhotos')}
+            >
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Subir fotos de referencia para el estilo visual</p>
+                  <p className="text-sm text-gray-600">Arrastra y suelta fotos aquí o haz clic para subir</p>
                   <p className="text-xs text-gray-500">Solo imágenes, máximo 10MB cada una. Puedes subir múltiples archivos</p>
                 </div>
                 <input
