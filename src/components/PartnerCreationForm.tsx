@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { Upload, Check, AlertCircle, Download } from 'lucide-react';
+import { Upload, Check, AlertCircle, Download, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,17 +16,19 @@ const PartnerCreationForm = () => {
     partnerName: '',
     regions: [] as string[],
     partnerURL: '',
-    benefitsDescription: '',
+    benefits: [] as string[],
     description: '',
   });
   
   const [logo, setLogo] = useState<File | null>(null);
   const [brandManual, setBrandManual] = useState<File | null>(null);
   const [referenceBanners, setReferenceBanners] = useState<File[]>([]);
+  const [referencePhotos, setReferencePhotos] = useState<File[]>([]);
+  const [currentBenefit, setCurrentBenefit] = useState('');
 
   const regions = [
-    { id: 'argentina-uruguay', label: 'Argentina & Uruguay', description: 'Tone: Local, familiar' },
-    { id: 'latam', label: 'LATAM', description: 'Tone: Spanish LATAM neutral' }
+    { id: 'argentina-uruguay', label: 'Argentina & Uruguay', description: 'Tono: Local, familiar' },
+    { id: 'latam', label: 'LATAM', description: 'Tono: Español LATAM neutral' }
   ];
 
   const handleInputChange = (field: string, value: string) => {
@@ -38,6 +41,23 @@ const PartnerCreationForm = () => {
       regions: checked 
         ? [...prev.regions, regionId]
         : prev.regions.filter(r => r !== regionId)
+    }));
+  };
+
+  const addBenefit = () => {
+    if (currentBenefit.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        benefits: [...prev.benefits, currentBenefit.trim()]
+      }));
+      setCurrentBenefit('');
+    }
+  };
+
+  const removeBenefit = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      benefits: prev.benefits.filter((_, i) => i !== index)
     }));
   };
 
@@ -92,8 +112,23 @@ const PartnerCreationForm = () => {
     }
   };
 
+  const handleReferencePhotosUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length > 0) {
+      const validFiles = files.filter(file => 
+        file.type.includes('image/') && file.size <= 10 * 1024 * 1024
+      );
+      
+      setReferencePhotos(prev => [...prev, ...validFiles]);
+    }
+  };
+
   const removeReferenceBanner = (index: number) => {
     setReferenceBanners(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeReferencePhoto = (index: number) => {
+    setReferencePhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,7 +142,7 @@ const PartnerCreationForm = () => {
       name: formData.partnerName,
       regions: formData.regions,
       partner_url: formData.partnerURL || undefined,
-      benefits_description: formData.benefitsDescription || undefined,
+      benefits_description: formData.benefits.join('; ') || undefined,
       description: formData.description || undefined,
       logo: logo || undefined,
       brand_manual: brandManual || undefined,
@@ -120,33 +155,35 @@ const PartnerCreationForm = () => {
         partnerName: '',
         regions: [],
         partnerURL: '',
-        benefitsDescription: '',
+        benefits: [],
         description: '',
       });
       setLogo(null);
       setBrandManual(null);
       setReferenceBanners([]);
+      setReferencePhotos([]);
+      setCurrentBenefit('');
     }
   };
 
   return (
     <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
       <CardHeader>
-        <CardTitle className="text-xl font-bold text-gray-900">Create New Partner</CardTitle>
-        <CardDescription>Add a new partner to your platform</CardDescription>
+        <CardTitle className="text-xl font-bold text-gray-900">Crear Nuevo Partner</CardTitle>
+        <CardDescription>Agregar un nuevo partner a tu plataforma</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Partner Name */}
           <div className="space-y-2">
             <Label htmlFor="partnerName" className="text-sm font-medium text-gray-700">
-              Partner Name *
+              Nombre del Partner *
             </Label>
             <Input
               id="partnerName"
               value={formData.partnerName}
               onChange={(e) => handleInputChange('partnerName', e.target.value)}
-              placeholder="Enter partner name"
+              placeholder="Ingresa el nombre del partner"
               className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors"
               required
             />
@@ -155,7 +192,7 @@ const PartnerCreationForm = () => {
           {/* Regions */}
           <div className="space-y-3">
             <Label className="text-sm font-medium text-gray-700">
-              Regions * (Select all that apply)
+              Regiones * (Selecciona todas las que apliquen)
             </Label>
             <div className="space-y-3">
               {regions.map((region) => (
@@ -180,45 +217,81 @@ const PartnerCreationForm = () => {
           {/* Partner URL */}
           <div className="space-y-2">
             <Label htmlFor="partnerURL" className="text-sm font-medium text-gray-700">
-              Partner URL
-              <span className="text-xs text-gray-500 ml-2">(used for branding colors)</span>
+              URL del Partner
+              <span className="text-xs text-gray-500 ml-2">(usado para colores de marca)</span>
             </Label>
             <Input
               id="partnerURL"
               type="url"
               value={formData.partnerURL}
               onChange={(e) => handleInputChange('partnerURL', e.target.value)}
-              placeholder="https://www.partner-website.com"
+              placeholder="https://www.sitio-del-partner.com"
               className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors"
             />
           </div>
 
-          {/* Benefits Description */}
+          {/* Benefits Section */}
           <div className="space-y-2">
-            <Label htmlFor="benefitsDescription" className="text-sm font-medium text-gray-700">
-              Benefits Description
-              <span className="text-xs text-gray-500 ml-2">(used for copy information)</span>
+            <Label className="text-sm font-medium text-gray-700">
+              Beneficios
+              <span className="text-xs text-gray-500 ml-2">(usado para información de copy)</span>
             </Label>
-            <Textarea
-              id="benefitsDescription"
-              value={formData.benefitsDescription}
-              onChange={(e) => handleInputChange('benefitsDescription', e.target.value)}
-              placeholder="Describe the benefits users get with Bonda (e.g., 20% discount, free shipping...)"
-              className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors resize-none"
-              rows={3}
-            />
+            
+            {/* Add Benefit Input */}
+            <div className="flex gap-2">
+              <Input
+                value={currentBenefit}
+                onChange={(e) => setCurrentBenefit(e.target.value)}
+                placeholder="ej. 20% de descuento, envío gratis..."
+                className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors flex-1"
+                onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addBenefit())}
+              />
+              <Button
+                type="button"
+                onClick={addBenefit}
+                disabled={!currentBenefit.trim()}
+                variant="outline"
+                size="sm"
+                className="px-3"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {/* Benefits List */}
+            {formData.benefits.length > 0 && (
+              <div className="space-y-2 mt-3">
+                <p className="text-xs text-gray-600">Beneficios agregados:</p>
+                <div className="space-y-1">
+                  {formData.benefits.map((benefit, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                      <span className="text-sm text-green-700">{benefit}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeBenefit(index)}
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Description */}
           <div className="space-y-2">
             <Label htmlFor="description" className="text-sm font-medium text-gray-700">
-              Additional Description
+              Descripción Adicional
             </Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => handleInputChange('description', e.target.value)}
-              placeholder="Brief description of the partner..."
+              placeholder="Breve descripción del partner..."
               className="bg-white/50 border-gray-200 focus:border-blue-500 transition-colors resize-none"
               rows={3}
             />
@@ -226,13 +299,13 @@ const PartnerCreationForm = () => {
 
           {/* Logo Upload */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">Partner Logo (PNG)</Label>
+            <Label className="text-sm font-medium text-gray-700">Logo del Partner (PNG)</Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Upload partner logo (PNG format)</p>
-                  <p className="text-xs text-gray-500">Maximum file size: 5MB</p>
+                  <p className="text-sm text-gray-600">Subir logo del partner (formato PNG)</p>
+                  <p className="text-xs text-gray-500">Tamaño máximo: 5MB</p>
                 </div>
                 <input
                   type="file"
@@ -247,7 +320,7 @@ const PartnerCreationForm = () => {
                   className="mt-4"
                   onClick={() => document.getElementById('logo')?.click()}
                 >
-                  Choose Logo
+                  Elegir Logo
                 </Button>
               </div>
               
@@ -262,24 +335,23 @@ const PartnerCreationForm = () => {
 
           {/* Brand Manual */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">Brand Manual (CSV)</Label>
+            <Label className="text-sm font-medium text-gray-700">Manual de Marca (CSV)</Label>
             <div className="space-y-3">
               <Button
                 type="button"
-                variant="outline"
                 onClick={downloadBrandManualTemplate}
-                className="w-full justify-center"
+                className="w-full justify-center bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-medium shadow-lg hover:shadow-xl transition-all duration-300"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Download CSV Template
+                Descargar Plantilla CSV
               </Button>
               
               <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
                 <div className="text-center">
                   <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-600">Upload completed brand manual (CSV)</p>
-                    <p className="text-xs text-gray-500">Fill out the template with brand colors and fonts</p>
+                    <p className="text-sm text-gray-600">Subir manual de marca completado (CSV)</p>
+                    <p className="text-xs text-gray-500">Completa la plantilla con colores y fuentes de marca</p>
                   </div>
                   <input
                     type="file"
@@ -294,7 +366,7 @@ const PartnerCreationForm = () => {
                     className="mt-4"
                     onClick={() => document.getElementById('brandManual')?.click()}
                   >
-                    Upload Brand Manual
+                    Subir Manual de Marca
                   </Button>
                 </div>
                 
@@ -308,18 +380,18 @@ const PartnerCreationForm = () => {
             </div>
           </div>
 
-          {/* Reference Banners (Optional) */}
+          {/* Reference Banners */}
           <div className="space-y-2">
             <Label className="text-sm font-medium text-gray-700">
-              Reference Banners (Optional)
-              <span className="text-xs text-gray-500 ml-2">(for AI context)</span>
+              Banners de Referencia (Opcional)
+              <span className="text-xs text-gray-500 ml-2">(para contexto de IA)</span>
             </Label>
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
               <div className="text-center">
                 <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Upload existing banners for reference</p>
-                  <p className="text-xs text-gray-500">Images only, maximum 10MB each</p>
+                  <p className="text-sm text-gray-600">Subir banners existentes para referencia</p>
+                  <p className="text-xs text-gray-500">Solo imágenes, máximo 10MB cada una. Puedes subir múltiples archivos</p>
                 </div>
                 <input
                   type="file"
@@ -335,13 +407,13 @@ const PartnerCreationForm = () => {
                   className="mt-4"
                   onClick={() => document.getElementById('referenceBanners')?.click()}
                 >
-                  Choose Reference Banners
+                  Elegir Banners de Referencia
                 </Button>
               </div>
               
               {referenceBanners.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <p className="text-sm font-medium text-gray-700">Selected files:</p>
+                  <p className="text-sm font-medium text-gray-700">Archivos seleccionados:</p>
                   {referenceBanners.map((file, index) => (
                     <div key={index} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
                       <span className="text-sm text-green-700">{file.name}</span>
@@ -352,7 +424,60 @@ const PartnerCreationForm = () => {
                         onClick={() => removeReferenceBanner(index)}
                         className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
                       >
-                        ×
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Reference Photos */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-gray-700">
+              Fotos de Referencia (Opcional)
+              <span className="text-xs text-gray-500 ml-2">(para estilo y contexto visual)</span>
+            </Label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white/30 hover:border-blue-400 transition-colors">
+              <div className="text-center">
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600">Subir fotos de referencia para el estilo visual</p>
+                  <p className="text-xs text-gray-500">Solo imágenes, máximo 10MB cada una. Puedes subir múltiples archivos</p>
+                </div>
+                <input
+                  type="file"
+                  id="referencePhotos"
+                  className="hidden"
+                  accept="image/*"
+                  multiple
+                  onChange={handleReferencePhotosUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => document.getElementById('referencePhotos')?.click()}
+                >
+                  Elegir Fotos de Referencia
+                </Button>
+              </div>
+              
+              {referencePhotos.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <p className="text-sm font-medium text-gray-700">Fotos seleccionadas:</p>
+                  {referencePhotos.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded">
+                      <span className="text-sm text-green-700">{file.name}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeReferencePhoto(index)}
+                        className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                      >
+                        <X className="w-3 h-3" />
                       </Button>
                     </div>
                   ))}
@@ -369,10 +494,10 @@ const PartnerCreationForm = () => {
             {isLoading ? (
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Creating Partner...
+                Creando Partner...
               </div>
             ) : (
-              'Create Partner'
+              'Crear Partner'
             )}
           </Button>
         </form>
