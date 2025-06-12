@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Home, Users, List, Plus, Menu, ChevronRight } from 'lucide-react';
+import { Home, Users, List, Plus, Wand2 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -10,9 +9,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
-  useSidebar,
 } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 
 interface AppSidebarProps {
   activeSection: string;
@@ -35,51 +33,57 @@ const menuItems = [
     icon: List,
     key: 'banner-list',
   },
-  {
-    title: 'Crear un Banner',
-    icon: Plus,
-    key: 'create-banner',
-  },
 ];
 
 export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps) {
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
-
   return (
-    <Sidebar className="border-r border-brand-100">
-      <SidebarContent className="bg-white flex flex-col">
-        {/* Sidebar Header with trigger */}
-        <div className="p-3 border-b border-gray-100 flex items-center justify-between">
-          <SidebarTrigger className="w-8 h-8">
-            {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-          </SidebarTrigger>
-          {!isCollapsed && <span className="text-sm font-medium text-gray-700">Menú</span>}
+    <Sidebar className="border-r border-brand-100 w-64 h-screen" collapsible="none">
+      <SidebarContent className="bg-white flex flex-col h-full">
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <img 
+              src="/bondacom_logo.jpeg" 
+              alt="Bonda" 
+              className="w-8 h-8 object-contain rounded-lg"
+            />
+            <h2 className="text-base font-medium text-gray-900">BONDA BANNER AI</h2>
+          </div>
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1">
+        {/* Create Banner - Main Action */}
+        <div className="p-4 flex-shrink-0">
+          <Button
+            onClick={() => setActiveSection('create-banner')}
+            className={`w-full justify-start px-4 py-3 text-left ${
+              activeSection === 'create-banner'
+                ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-lg'
+                : 'bg-violet-500 hover:bg-violet-600 text-white shadow-md'
+            } transition-all duration-200`}
+          >
+            <Wand2 className="w-5 h-5 mr-3" />
+            <span className="font-medium">Crear un Banner</span>
+          </Button>
+        </div>
+
+        {/* Main Navigation */}
+        <div className="flex-1 px-4 overflow-hidden">
           <SidebarGroup>
-            {!isCollapsed && (
-              <SidebarGroupLabel className="text-gray-600 font-medium px-3 py-2">
-                Navegación
-              </SidebarGroupLabel>
-            )}
             <SidebarGroupContent>
-              <SidebarMenu>
+              <SidebarMenu className="space-y-1">
                 {menuItems.map((item) => (
                   <SidebarMenuItem key={item.key}>
                     <SidebarMenuButton
                       onClick={() => setActiveSection(item.key)}
                       isActive={activeSection === item.key}
-                      className={`w-full justify-start px-3 py-2 ${
+                      className={`w-full justify-start px-3 py-2.5 rounded-lg transition-all duration-200 ${
                         activeSection === item.key
-                          ? 'bg-brand-500 text-white hover:bg-brand-600'
-                          : 'text-gray-700 hover:bg-brand-50 hover:text-brand-500'
+                          ? 'bg-brand-100 text-brand-700 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                       }`}
                     >
                       <item.icon className="w-4 h-4 mr-3" />
-                      {!isCollapsed && item.title}
+                      {item.title}
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
@@ -89,8 +93,7 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
         </div>
 
         {/* Footer with powered by panchito */}
-        {!isCollapsed && (
-          <div className="p-3 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 flex-shrink-0">
             <div className="flex justify-center">
               <a 
                 href="https://www.panchito.xyz/" 
@@ -102,7 +105,6 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
               </a>
             </div>
           </div>
-        )}
       </SidebarContent>
     </Sidebar>
   );

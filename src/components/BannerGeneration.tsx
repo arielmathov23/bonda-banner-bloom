@@ -1,12 +1,13 @@
-
 import React, { useState } from 'react';
-import { Wand2, Download, ChevronLeft, ChevronRight, RefreshCw, Sparkles, Menu } from 'lucide-react';
+import { Wand2, Download, ChevronLeft, ChevronRight, RefreshCw, Sparkles, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
 import BannerFormInputs from '@/components/BannerFormInputs';
+import { generateBannerImage, extractBrandColors, isOpenAIConfigured, getAPIKeyStatus, type BannerGenerationRequest, type GeneratedBanner } from '@/lib/openai';
 
 interface BannerOption {
   id: string;
@@ -16,9 +17,10 @@ interface BannerOption {
   copy: string;
   bannerType: string;
   flavor: string;
+  prompt?: string;
 }
 
-interface GeneratedBanner {
+interface SavedBanner {
   id: string;
   partnerId: string;
   partnerName: string;
@@ -27,13 +29,18 @@ interface GeneratedBanner {
   createdAt: string;
 }
 
-const BannerGeneration = () => {
+interface BannerGenerationProps {
+  preSelectedPartnerId?: string;
+}
+
+const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
   // Form state
-  const [selectedPartnerId, setSelectedPartnerId] = useState('');
+  const [selectedPartnerId, setSelectedPartnerId] = useState(preSelectedPartnerId || '');
   const [bannerType, setBannerType] = useState('');
   const [promotionDiscount, setPromotionDiscount] = useState('');
   const [bannerCopy, setBannerCopy] = useState('');
   const [ctaCopy, setCtaCopy] = useState('');
+  const [customPrompt, setCustomPrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState('');
   const [selectedFlavor, setSelectedFlavor] = useState('');
 
@@ -43,14 +50,19 @@ const BannerGeneration = () => {
   const [generatedOptions, setGeneratedOptions] = useState<BannerOption[]>([]);
   const [currentOptionIndex, setCurrentOptionIndex] = useState(0);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState<string>('');
   
   // Layout state
-  const [savedBanners, setSavedBanners] = useState<GeneratedBanner[]>([]);
-  const [sidebarExpanded, setSidebarExpanded] = useState(true);
+  const [savedBanners, setSavedBanners] = useState<SavedBanner[]>([]);
 
   const { partners, isLoading: partnersLoading } = usePartners();
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
   const currentOption = generatedOptions[currentOptionIndex];
+
+  // Check if OpenAI API key is configured
+  const openAIConfigured = isOpenAIConfigured();
+  const apiKeyStatus = getAPIKeyStatus();
 
   const generateBannerOptions = async () => {
     if (!selectedPartnerId || !bannerType || !bannerCopy || !ctaCopy || !selectedStyle || !selectedFlavor) {
@@ -71,60 +83,184 @@ const BannerGeneration = () => {
       return;
     }
 
+    if (!openAIConfigured) {
+      console.log('API Key Status:', apiKeyStatus);
+      toast({
+        title: "Configuración faltante",
+        description: apiKeyStatus.placeholder 
+          ? "Reemplaza 'your_openai_api_key_here' con tu API key real de OpenAI"
+          : "OpenAI API key no está configurada. Agrega tu API key al archivo .env.local",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Starting banner generation with OpenAI API key:', apiKeyStatus.keyPreview);
+
     setIsGenerating(true);
     setProgress(0);
+    setGenerationError(null);
 
-    const interval = setInterval(() => {
+    // Simulate progress updates
+    const progressInterval = setInterval(() => {
       setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          return 100;
+        if (prev >= 90) {
+          clearInterval(progressInterval);
+          return 90;
         }
-        return prev + 15;
+        return prev + Math.random() * 15;
       });
-    }, 200);
+    }, 500);
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Extract brand colors from partner URL
+      let brandColors = {};
+      if (selectedPartner?.partner_url) {
+        try {
+          brandColors = await extractBrandColors(selectedPartner.partner_url);
+        } catch (error) {
+          console.warn('Failed to extract brand colors, using defaults');
+        }
+      }
 
-      const bannerStyles = ['Audaz y Dinámico', 'Minimalista', 'Vibrante'];
-      const bannerFlavors = ['Contextual', 'Foto de Producto'];
+      // Prepare reference images
+      const referenceImages: string[] = [];
       
-      const styleDescription = bannerStyles.find(s => s.toLowerCase().replace(/\s+/g, '-').replace('&', '').replace(/--/g, '-') === selectedStyle) || selectedStyle;
-      const flavorDescription = bannerFlavors.find(f => f.toLowerCase().replace(/\s+/g, '-') === selectedFlavor) || selectedFlavor;
-      const typeDescription = bannerType === 'promotion' ? `promoción con ${promotionDiscount}% descuento` : 'general';
+      // Add partner logo
+      if (selectedPartner?.logo_url) {
+        referenceImages.push(selectedPartner.logo_url);
+        console.log('Added partner logo:', selectedPartner.logo_url);
+      }
       
-      console.log(`AI Prompt: Crear un banner ${styleDescription} para ${selectedPartner?.name} con imágenes ${flavorDescription}. Tipo de banner: ${typeDescription}. Texto: "${bannerCopy}" CTA: "${ctaCopy}"`);
+      // Add reference banners based on selected style
+      if (selectedStyle) {
+        // If style is a partner banner ID
+        if (selectedStyle.startsWith('partner-banner-') && selectedPartner?.reference_banners_urls) {
+          const bannerIndex = parseInt(selectedStyle.replace('partner-banner-', ''));
+          if (selectedPartner.reference_banners_urls[bannerIndex]) {
+            referenceImages.push(selectedPartner.reference_banners_urls[bannerIndex]);
+            console.log('Added selected partner banner:', selectedPartner.reference_banners_urls[bannerIndex]);
+          }
+        }
+        // If style is a default style, add all partner reference banners
+        else if (selectedPartner?.reference_banners_urls && selectedPartner.reference_banners_urls.length > 0) {
+          referenceImages.push(...selectedPartner.reference_banners_urls.slice(0, 2));
+          console.log('Added partner reference banners:', selectedPartner.reference_banners_urls.slice(0, 2));
+        }
+      }
+      
+      // Add product photos based on flavor selection
+      if (selectedFlavor) {
+        // If flavor is a partner product photo ID
+        if (selectedFlavor.startsWith('partner-image-') && selectedPartner?.product_photos_urls) {
+          const imageIndex = parseInt(selectedFlavor.replace('partner-image-', ''));
+          if (selectedPartner.product_photos_urls[imageIndex]) {
+            referenceImages.push(selectedPartner.product_photos_urls[imageIndex]);
+            console.log('Added selected partner product photo:', selectedPartner.product_photos_urls[imageIndex]);
+          }
+        }
+        // If flavor contains 'product' and we have partner product photos, add them
+        else if (selectedFlavor.includes('product') && selectedPartner?.product_photos_urls && selectedPartner.product_photos_urls.length > 0) {
+          referenceImages.push(...selectedPartner.product_photos_urls.slice(0, 2));
+          console.log('Added partner product photos:', selectedPartner.product_photos_urls.slice(0, 2));
+        }
+      }
 
-      const option: BannerOption = {
-        id: '1',
-        desktopUrl: '/lovable-uploads/b2f81bff-3ec1-4c17-9413-7c03f9312980.png',
-        mobileUrl: `https://via.placeholder.com/492x225/4A90E2/FFFFFF?text=${encodeURIComponent(`${selectedPartner?.name || ''} - Mobile`)}`,
-        style: styleDescription,
-        copy: bannerCopy,
-        bannerType: typeDescription,
-        flavor: flavorDescription
+      console.log('Total reference images collected:', referenceImages.length, referenceImages);
+
+      // Prepare benefits list
+      const benefits = selectedPartner?.benefits_description 
+        ? selectedPartner.benefits_description.split('; ').filter(b => b.trim())
+        : [];
+
+      // Create generation request with enhanced context
+      const generationRequest: BannerGenerationRequest = {
+        partnerName: selectedPartner?.name || '',
+        partnerUrl: selectedPartner?.partner_url,
+        benefits,
+        promotionalText: bannerCopy,
+        ctaText: ctaCopy,
+        customPrompt: customPrompt,
+        promotionDiscount: bannerType === 'promotion' ? promotionDiscount : undefined, // Include discount only for promotion banners
+        brandColors,
+        referenceImages,
+        style: selectedStyle,
+        aspectRatio: '3:2',
+        // Enhanced context for comprehensive prompt generation
+        partnerDescription: selectedPartner?.description,
+        selectedBenefit: bannerType, // This is the selected benefit from the form
+        hasLogo: !!selectedPartner?.logo_url,
+        hasReferenceBanners: !!(selectedPartner?.reference_banners_urls && selectedPartner.reference_banners_urls.length > 0),
+        hasProductPhotos: !!(selectedPartner?.product_photos_urls && selectedPartner.product_photos_urls.length > 0),
+        referenceImageCount: referenceImages.length
       };
 
-      setGeneratedOptions([option]);
+      console.log('Generating banner with request:', generationRequest);
+
+      // Generate banner using OpenAI
+      const result = await generateBannerImage(generationRequest);
+
+      // Create banner option from result
+      const bannerOption: BannerOption = {
+        id: Date.now().toString(),
+        desktopUrl: result.imageUrl,
+        mobileUrl: result.imageUrl, // Same image for both, could be resized differently in future
+        style: selectedStyle,
+        copy: bannerCopy,
+        bannerType: bannerType,
+        flavor: selectedFlavor,
+        prompt: result.prompt
+      };
+
+      setGeneratedOptions([bannerOption]);
       setCurrentOptionIndex(0);
       setHasGenerated(true);
+      setProgress(100);
+      setLastGeneratedPrompt(result.prompt || '');
+
+      // Automatically save the banner
+      const newBanner: SavedBanner = {
+        id: bannerOption.id,
+        partnerId: selectedPartner.id,
+        partnerName: selectedPartner.name,
+        selectedOption: bannerOption,
+        customCopy: bannerCopy,
+        createdAt: new Date().toISOString()
+      };
+
+      // Save to localStorage
+      try {
+        const existingSaved = localStorage.getItem('savedBanners');
+        const savedBannersArray = existingSaved ? JSON.parse(existingSaved) : [];
+        const updatedBanners = [newBanner, ...savedBannersArray];
+        localStorage.setItem('savedBanners', JSON.stringify(updatedBanners));
+        setSavedBanners(prev => [newBanner, ...prev]);
+        
+        // Dispatch custom event to notify other components
+        window.dispatchEvent(new Event('bannerSaved'));
+      } catch (error) {
+        console.error('Failed to auto-save banner to localStorage:', error);
+      }
 
       toast({
-        title: "¡Banner generado!",
-        description: `Banner creado para ${selectedPartner?.name} con tus especificaciones`,
+        title: "¡Banner generado y guardado!",
+        description: `Banner para ${selectedPartner?.name} creado y guardado automáticamente`,
       });
 
     } catch (error) {
+      console.error('Banner generation failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      setGenerationError(errorMessage);
+      
       toast({
-        title: "Falló la generación",
-        description: "Por favor intenta nuevamente más tarde",
+        title: "Error al generar banner",
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
       setIsGenerating(false);
-      setProgress(0);
-      clearInterval(interval);
+      clearInterval(progressInterval);
+      setTimeout(() => setProgress(0), 2000); // Reset progress after delay
     }
   };
 
@@ -132,7 +268,15 @@ const BannerGeneration = () => {
     if (!currentOption) return;
     
     const url = size === 'desktop' ? currentOption.desktopUrl : currentOption.mobileUrl;
-    const dimensions = size === 'desktop' ? '1440x338' : '984x450';
+    const dimensions = size === 'desktop' ? '1536x1024' : '1536x1024'; // 3:2 landscape format
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedPartner?.name || 'banner'}-${size}-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     
     toast({
       title: "Descarga iniciada",
@@ -143,7 +287,7 @@ const BannerGeneration = () => {
   const saveBanner = () => {
     if (!currentOption || !selectedPartner) return;
 
-    const newBanner: GeneratedBanner = {
+    const newBanner: SavedBanner = {
       id: Date.now().toString(),
       partnerId: selectedPartner.id,
       partnerName: selectedPartner.name,
@@ -151,6 +295,19 @@ const BannerGeneration = () => {
       customCopy: bannerCopy,
       createdAt: new Date().toISOString()
     };
+
+    // Save to localStorage
+    try {
+      const existingSaved = localStorage.getItem('savedBanners');
+      const savedBannersArray = existingSaved ? JSON.parse(existingSaved) : [];
+      const updatedBanners = [newBanner, ...savedBannersArray];
+      localStorage.setItem('savedBanners', JSON.stringify(updatedBanners));
+      
+      // Dispatch custom event to notify other components
+      window.dispatchEvent(new Event('bannerSaved'));
+    } catch (error) {
+      console.error('Failed to save banner to localStorage:', error);
+    }
 
     setSavedBanners(prev => [newBanner, ...prev]);
 
@@ -166,29 +323,105 @@ const BannerGeneration = () => {
     setPromotionDiscount('');
     setBannerCopy('');
     setCtaCopy('');
+    setCustomPrompt('');
     setSelectedStyle('');
     setSelectedFlavor('');
     setGeneratedOptions([]);
     setHasGenerated(false);
     setCurrentOptionIndex(0);
+    setGenerationError(null);
+    setLastGeneratedPrompt('');
   };
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-8 p-8 bg-gradient-to-br from-gray-50 to-blue-50">
-      {/* Menu Toggle Button */}
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setSidebarExpanded(!sidebarExpanded)}
-        className="fixed top-20 left-4 z-50 bg-white shadow-lg border-gray-200 hover:bg-gray-50"
-      >
-        <Menu className="w-4 h-4" />
-      </Button>
+    <div className="h-[calc(100vh-8rem)] flex gap-6 bg-gray-50">
+      {/* API Configuration Warning */}
+      {!openAIConfigured && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Configuración requerida</AlertTitle>
+            <AlertDescription>
+              {apiKeyStatus.placeholder ? (
+                <>
+                  Reemplaza el placeholder en .env.local con tu API key real:
+                  <br />
+                  <code className="text-xs bg-red-100 px-1 py-0.5 rounded mt-1 block">
+                    VITE_OPENAI_API_KEY=sk-tu_api_key_real_aqui
+                  </code>
+                </>
+              ) : (
+                <>
+                  Para usar la generación de banners AI, agrega tu OpenAI API key en el archivo .env.local:
+                  <br />
+                  <code className="text-xs bg-red-100 px-1 py-0.5 rounded mt-1 block">
+                    VITE_OPENAI_API_KEY=sk-tu_api_key_aqui
+                  </code>
+                </>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Debug Info for Development */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed bottom-4 left-4 z-50 max-w-md">
+          <Alert>
+            <AlertTitle>Debug Info</AlertTitle>
+            <AlertDescription className="text-xs max-h-40 overflow-y-auto">
+              API Key: {apiKeyStatus.configured ? (apiKeyStatus.placeholder ? '❌ Placeholder' : '✅ Configured') : '❌ Missing'}
+              <br />
+              Preview: {apiKeyStatus.keyPreview || 'N/A'}
+              {selectedPartner && (
+                <>
+                  <br />
+                  Partner: {selectedPartner.name}
+                  <br />
+                  Logo: {selectedPartner.logo_url ? '✅' : '❌'}
+                  <br />
+                  Ref Banners: {selectedPartner.reference_banners_urls?.length || 0}
+                  <br />
+                  Product Photos: {selectedPartner.product_photos_urls?.length || 0}
+                  <br />
+                  Style: {selectedStyle || 'None'}
+                  <br />
+                  Flavor: {selectedFlavor || 'None'}
+                  <br />
+                  Custom Prompt: {customPrompt ? '✅' : '❌'}
+                </>
+              )}
+              {hasGenerated && currentOption && (
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
+                    View Generated Prompt
+                  </summary>
+                  <div className="mt-1 p-2 bg-gray-100 rounded text-xs max-h-32 overflow-y-auto whitespace-pre-wrap">
+                    {/* Show the prompt that was used for generation */}
+                    {lastGeneratedPrompt}
+                  </div>
+                </details>
+              )}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Generation Error Alert */}
+      {generationError && (
+        <div className="fixed top-20 right-4 z-50 max-w-md">
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error de generación</AlertTitle>
+            <AlertDescription>{generationError}</AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {/* Left Column - Configuration (when generated) or Full Form (when not generated) */}
-      <div className={`transition-all duration-300 ${hasGenerated ? (sidebarExpanded ? 'w-80' : 'w-0 opacity-0') : 'w-full max-w-4xl mx-auto'} flex-shrink-0 ${hasGenerated && !sidebarExpanded ? 'hidden' : ''}`}>
+      <div className={`transition-all duration-300 ${hasGenerated ? 'w-80' : 'w-full'} flex-shrink-0`}>
         {hasGenerated ? (
-          <div className="space-y-4">
+          <div className="space-y-4 h-full overflow-y-auto">
             {/* Banner Configuration - Made smaller */}
             <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl">
               <CardHeader className="pb-3">
@@ -213,11 +446,8 @@ const BannerGeneration = () => {
                       <p className="text-gray-800 font-medium">{selectedPartner?.name}</p>
                     </div>
                     <div className="space-y-1">
-                      <span className="font-semibold text-gray-600">Tipo</span>
-                      <p className="text-gray-800 font-medium">
-                        {bannerType === 'promotion' ? 'Promocional' : 'General'}
-                        {bannerType === 'promotion' && ` (${promotionDiscount}% desc)`}
-                      </p>
+                      <span className="font-semibold text-gray-600">Beneficio</span>
+                      <p className="text-gray-800 font-medium">{bannerType}</p>
                     </div>
                     <div className="space-y-1">
                       <span className="font-semibold text-gray-600">Estilo</span>
@@ -232,11 +462,18 @@ const BannerGeneration = () => {
                     <span className="font-semibold text-gray-600">CTA</span>
                     <p className="text-gray-800 font-medium mt-1">"{ctaCopy}"</p>
                   </div>
+                  {customPrompt && (
+                    <div className="border-t border-gray-200 pt-3">
+                      <span className="font-semibold text-gray-600">Instrucciones Adicionales</span>
+                      <p className="text-gray-800 font-medium mt-1">"{customPrompt}"</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           </div>
         ) : (
+          <div className="h-full">
           <BannerFormInputs
             selectedPartnerId={selectedPartnerId}
             setSelectedPartnerId={setSelectedPartnerId}
@@ -248,6 +485,8 @@ const BannerGeneration = () => {
             setBannerCopy={setBannerCopy}
             ctaCopy={ctaCopy}
             setCtaCopy={setCtaCopy}
+              customPrompt={customPrompt}
+              setCustomPrompt={setCustomPrompt}
             selectedStyle={selectedStyle}
             setSelectedStyle={setSelectedStyle}
             selectedFlavor={selectedFlavor}
@@ -259,6 +498,7 @@ const BannerGeneration = () => {
             progress={progress}
             onGenerate={generateBannerOptions}
           />
+          </div>
         )}
       </div>
 
@@ -273,7 +513,7 @@ const BannerGeneration = () => {
                   <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                     <Wand2 className="w-4 h-4 text-white" />
                   </div>
-                  <CardTitle className="text-lg font-semibold text-gray-700">Banner Generado</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-gray-700">Banner Generado con AI</CardTitle>
                 </div>
                 {generatedOptions.length > 1 && (
                   <div className="flex items-center gap-2">
@@ -313,7 +553,7 @@ const BannerGeneration = () => {
                   <TabsContent value="desktop" className="flex-1 space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-gray-600">Versión Escritorio</h4>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">1440×338px</span>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">1536×1024px (3:2)</span>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 flex-1 flex items-center justify-center">
                       <img
@@ -327,7 +567,7 @@ const BannerGeneration = () => {
                   <TabsContent value="mobile" className="flex-1 space-y-4">
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-semibold text-gray-600">Versión Móvil</h4>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">984×450px</span>
+                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">1536×1024px (3:2)</span>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 flex-1 flex items-center justify-center">
                       <img
@@ -359,11 +599,15 @@ const BannerGeneration = () => {
                   Descargar Móvil
                 </Button>
                 <Button
-                  onClick={saveBanner}
-                  className="bg-purple-600 hover:bg-purple-700 rounded-xl"
+                  onClick={() => toast({
+                    title: "Banner ya guardado",
+                    description: "Este banner se guardó automáticamente al generarse",
+                  })}
+                  className="bg-green-600 hover:bg-green-700 rounded-xl"
                   size="lg"
+                  disabled={true}
                 >
-                  Guardar Proyecto
+                  ✓ Guardado
                 </Button>
               </div>
             </CardContent>

@@ -1,111 +1,95 @@
-import React, { useState } from 'react';
-import { Users, Image, History, Home, Plus, List, Menu } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState, useEffect } from 'react';
+import { Users, Image, Plus, History, ChevronRight, Wand2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { SidebarProvider, SidebarTrigger, useSidebar } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import PartnerCreationForm from '@/components/PartnerCreationForm';
-import BannerGeneration from '@/components/BannerGeneration';
+import { usePartners, type Partner } from '@/hooks/usePartners';
 import PartnerList from '@/components/PartnerList';
+import PartnerCreationForm from '@/components/PartnerCreationForm';
 import BannerHistory from '@/components/BannerHistory';
-import { usePartners } from '@/hooks/usePartners';
-
-const HeaderContent = ({ activeSection, setActiveSection }: { activeSection: string, setActiveSection: (section: string) => void }) => {
-  const { state } = useSidebar();
-  const isCollapsed = state === 'collapsed';
-
-  // Mock recent banners data
-  const recentBanners = [
-    {
-      id: '1',
-      title: 'Campaña de Rebajas de Verano',
-      partner: 'Socio A',
-      createdAt: new Date(2024, 4, 25),
-      thumbnail: '/placeholder.svg'
-    },
-    {
-      id: '2',
-      title: 'Promoción Black Friday',
-      partner: 'Socio B',
-      createdAt: new Date(2024, 4, 24),
-      thumbnail: '/placeholder.svg'
-    },
-    {
-      id: '3',
-      title: 'Especial de Navidad',
-      partner: 'Socio C',
-      createdAt: new Date(2024, 4, 23),
-      thumbnail: '/placeholder.svg'
-    }
-  ];
-
-  const stats = [
-    { title: 'Socios Totales', value: '10', icon: Users },
-    { title: 'Banners Generados', value: '12', icon: Image },
-  ];
-
-  return (
-    <header className="bg-white border-b border-brand-100 sticky top-0 z-50">
-      <div className="px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-3">
-            {/* Menu trigger - visible when sidebar is collapsed or on mobile */}
-            <SidebarTrigger className={`${isCollapsed ? 'block' : 'md:hidden'}`}>
-              <Menu className="w-5 h-5" />
-            </SidebarTrigger>
-            
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-              <img 
-                src="/lovable-uploads/41776386-a7fe-49a4-97f6-4445039b80d9.png" 
-                alt="Bonda Logo" 
-                className="w-8 h-8 object-contain"
-              />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-gray-700">
-                Generación de Banners Bonda
-              </h1>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-};
+import BannerGeneration from '@/components/BannerGeneration';
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState('home');
+  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const { partners } = usePartners();
 
-  // Mock recent banners data
-  const recentBanners = [
-    {
-      id: '1',
-      title: 'Campaña de Rebajas de Verano',
-      partner: 'Socio A',
-      createdAt: new Date(2024, 4, 25),
-      thumbnail: '/placeholder.svg'
-    },
-    {
-      id: '2',
-      title: 'Promoción Black Friday',
-      partner: 'Socio B',
-      createdAt: new Date(2024, 4, 24),
-      thumbnail: '/placeholder.svg'
-    },
-    {
-      id: '3',
-      title: 'Especial de Navidad',
-      partner: 'Socio C',
-      createdAt: new Date(2024, 4, 23),
-      thumbnail: '/placeholder.svg'
+  // Get saved banners from localStorage
+  const getSavedBanners = () => {
+    try {
+      const saved = localStorage.getItem('savedBanners');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-  ];
+  };
+
+  const [savedBanners, setSavedBanners] = useState(() => getSavedBanners());
+  const recentBanners = savedBanners.slice(0, 3); // Show only the 3 most recent
+
+  // Listen for localStorage changes and update savedBanners
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setSavedBanners(getSavedBanners());
+    };
+
+    // Listen for custom storage event
+    window.addEventListener('bannerSaved', handleStorageChange);
+    // Also listen for storage events (for cross-tab updates)
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('bannerSaved', handleStorageChange);
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Refresh banners when returning to home section
+  useEffect(() => {
+    if (activeSection === 'home') {
+      setSavedBanners(getSavedBanners());
+    }
+  }, [activeSection]);
+
+  // Calculate banner count per partner
+  const getPartnerBannerCount = (partnerId: string) => {
+    return savedBanners.filter((banner: any) => banner.partnerId === partnerId).length;
+  };
 
   const stats = [
     { title: 'Socios Totales', value: partners.length.toString(), icon: Users },
-    { title: 'Banners Generados', value: '12', icon: Image },
+    { title: 'Banners Generados', value: savedBanners.length.toString(), icon: Image },
   ];
+
+  const handleEditPartner = (partner: Partner) => {
+    setEditingPartner(partner);
+    handleSectionChange('edit-partner');
+  };
+
+  const handlePartnerFormSuccess = () => {
+    setEditingPartner(null);
+    handleSectionChange('partners');
+  };
+
+  const handlePartnerClick = (partnerId: string) => {
+    setSelectedPartnerId(partnerId);
+    setActiveSection('partner-banners');
+  };
+
+  const handleCreateBannerForPartner = (partnerId: string) => {
+    setSelectedPartnerId(partnerId);
+    setActiveSection('create-banner');
+  };
+
+  const handleSectionChange = (section: string) => {
+    // Clear selected partner when switching to certain sections
+    if (section === 'home' || section === 'partners' || section === 'banner-list') {
+      setSelectedPartnerId('');
+    }
+    setActiveSection(section);
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -131,59 +115,143 @@ const Index = () => {
               ))}
             </div>
 
-            {/* Quick Action */}
-            <Card className="bg-white border border-brand-100 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-xl font-semibold text-gray-700">Acción Rápida</CardTitle>
-                <CardDescription className="text-gray-600">Comienza a crear tu banner</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button 
-                  onClick={() => setActiveSection('create-banner')}
-                  className="bg-brand-500 hover:bg-brand-600 text-white"
-                >
-                  Generar Banner
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Recent Banners Preview */}
+            {/* Partners Grid */}
             <Card className="bg-white border border-brand-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
-                  <CardTitle className="text-xl font-semibold text-gray-700">Banners Recientes</CardTitle>
-                  <CardDescription className="text-gray-600">Tus últimas creaciones de banners</CardDescription>
+                  <CardTitle className="text-xl font-semibold text-gray-700">Socios</CardTitle>
+                  <CardDescription className="text-gray-600">Accede a los banners de cada socio</CardDescription>
                 </div>
                 <Button 
                   variant="outline" 
-                  onClick={() => setActiveSection('banner-list')}
+                  onClick={() => handleSectionChange('partners')}
                   className="border-brand-200 text-brand-600 hover:bg-brand-50"
                 >
-                  Ver Todos
+                  Gestionar Socios
                 </Button>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {recentBanners.map((banner) => (
-                    <div 
-                      key={banner.id} 
-                      className="group cursor-pointer p-4 rounded-lg border border-brand-100 hover:border-brand-300 transition-colors"
-                      onClick={() => setActiveSection('banner-list')}
-                    >
-                      <div className="aspect-video bg-brand-50 rounded-md mb-3 flex items-center justify-center">
-                        <Image className="w-8 h-8 text-brand-300" />
-                      </div>
-                      <h4 className="font-medium text-gray-700 text-sm truncate">{banner.title}</h4>
-                      <p className="text-xs text-gray-500 mt-1">{banner.partner}</p>
-                      <div className="flex items-center text-xs text-gray-400 mt-2">
-                        <History className="w-3 h-3 mr-1" />
-                        {banner.createdAt.toLocaleDateString()}
-                      </div>
+                {partners.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-brand-50 rounded-lg flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-8 h-8 text-brand-300" />
                     </div>
-                  ))}
-                </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No hay socios aún</h3>
+                    <p className="text-gray-500 mb-4">Agrega tu primer socio para comenzar</p>
+                    <Button 
+                      onClick={() => handleSectionChange('create-partner')}
+                      className="bg-brand-500 hover:bg-brand-600 text-white"
+                    >
+                      Agregar Socio
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {partners.map((partner) => (
+                      <div 
+                        key={partner.id} 
+                        className="group cursor-pointer bg-white p-4 rounded-lg border border-brand-100 hover:border-brand-300 hover:shadow-md transition-all duration-300"
+                        onClick={() => handlePartnerClick(partner.id)}
+                      >
+                        <div className="flex flex-col items-center text-center space-y-3">
+                          <div className="w-12 h-12 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {partner.logo_url ? (
+                              <img 
+                                src={partner.logo_url} 
+                                alt={`${partner.name} logo`}
+                                className="w-full h-full object-cover rounded-lg"
+                              />
+                            ) : (
+                              <Users className="w-6 h-6 text-brand-400" />
+                            )}
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <h4 className="font-semibold text-gray-900 text-sm leading-tight">{partner.name}</h4>
+                            <p className="text-xs text-gray-500">
+                              {getPartnerBannerCount(partner.id)} banners generados
+                            </p>
+                          </div>
+                          
+                          <div className="text-xs text-brand-600 font-medium group-hover:text-brand-700 transition-colors">
+                            Ver banners →
+                          </div>
+                      </div>
+                      </div>
+                    ))}
+                    </div>
+                )}
               </CardContent>
             </Card>
+
+            {/* Recent Banners or Empty State */}
+            {savedBanners.length === 0 ? (
+              /* Empty State - No banners created yet */
+              <Card className="bg-white border border-gray-200 shadow-sm">
+                <CardContent className="p-12 text-center">
+                  <div className="w-16 h-16 bg-violet-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Wand2 className="w-8 h-8 text-violet-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Crea tu primer banner</h3>
+                  <p className="text-gray-500 mb-6">Genera banners profesionales con IA</p>
+                  <Button 
+                    onClick={() => handleSectionChange('create-banner')}
+                    className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-2"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Crear Banner
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              /* Recent Banners Section */
+              <Card className="bg-white border border-gray-200 shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle className="text-lg font-semibold text-gray-900">Banners Recientes</CardTitle>
+                    <CardDescription className="text-gray-500">Tus últimos banners generados</CardDescription>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => handleSectionChange('banner-list')}
+                    className="text-violet-600 border-violet-200 hover:bg-violet-50"
+                  >
+                    Ver todos
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {recentBanners.map((banner: any, index: number) => (
+                      <div key={banner.id || index} className="group relative">
+                        <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                          <img 
+                            src={banner.selectedOption?.desktopUrl || banner.imageUrl} 
+                            alt={banner.selectedOption?.copy || banner.customCopy || `Banner ${index + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          />
+                        </div>
+                        <div className="mt-2">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {banner.selectedOption?.copy || banner.customCopy || `Banner ${index + 1}`}
+                          </p>
+                          <p className="text-xs text-gray-500">{banner.partnerName || 'Sin socio'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-6 text-center">
+                    <Button 
+                      onClick={() => handleSectionChange('create-banner')}
+                      className="bg-violet-600 hover:bg-violet-700 text-white px-6 py-2"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Crear Nuevo Banner
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </div>
         );
 
@@ -198,7 +266,10 @@ const Index = () => {
                   <CardDescription className="text-gray-600">Gestiona tus asociaciones comerciales</CardDescription>
                 </div>
                 <Button 
-                  onClick={() => setActiveSection('create-partner')}
+                  onClick={() => {
+                    setEditingPartner(null);
+                    handleSectionChange('create-partner');
+                  }}
                   className="bg-brand-500 hover:bg-brand-600 text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -206,7 +277,7 @@ const Index = () => {
                 </Button>
               </CardHeader>
               <CardContent>
-                <PartnerList />
+                <PartnerList onEditPartner={handleEditPartner} />
               </CardContent>
             </Card>
           </div>
@@ -214,13 +285,17 @@ const Index = () => {
 
       case 'create-partner':
         return (
+              <PartnerCreationForm onSuccess={handlePartnerFormSuccess} />
+        );
+
+      case 'edit-partner':
+        return (
           <Card className="bg-white border border-brand-100 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-xl font-semibold text-gray-700">Agregar Nuevo Socio</CardTitle>
-              <CardDescription className="text-gray-600">Crear una nueva asociación comercial</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <PartnerCreationForm />
+            <CardContent className="p-6">
+              <PartnerCreationForm 
+                editingPartner={editingPartner} 
+                onSuccess={handlePartnerFormSuccess} 
+              />
             </CardContent>
           </Card>
         );
@@ -228,8 +303,76 @@ const Index = () => {
       case 'banner-list':
         return <BannerHistory />;
 
+      case 'partner-banners':
+        const selectedPartner = partners.find(p => p.id === selectedPartnerId);
+        return <BannerHistory partnerId={selectedPartnerId} partnerName={selectedPartner?.name} onCreateBanner={() => handleCreateBannerForPartner(selectedPartnerId)} />;
+
       case 'create-banner':
-        return <BannerGeneration />;
+        if (selectedPartnerId) {
+          return <BannerGeneration preSelectedPartnerId={selectedPartnerId} />;
+        } else {
+          return (
+            <Card className="bg-white border border-brand-100 shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold text-gray-700">Seleccionar Socio</CardTitle>
+                <CardDescription className="text-gray-600">Elige el socio para el cual quieres crear un banner</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {partners.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-brand-50 rounded-lg flex items-center justify-center mx-auto mb-4">
+                      <Users className="w-8 h-8 text-brand-300" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No hay socios</h3>
+                    <p className="text-gray-500 mb-4">Necesitas agregar un socio antes de crear banners</p>
+                    <Button 
+                      onClick={() => handleSectionChange('create-partner')}
+                      className="bg-brand-500 hover:bg-brand-600 text-white"
+                    >
+                      Agregar Socio
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {partners.map((partner) => (
+                      <div 
+                        key={partner.id} 
+                        className="group cursor-pointer p-6 rounded-lg border border-brand-100 hover:border-brand-300 transition-all hover:shadow-md"
+                        onClick={() => handleCreateBannerForPartner(partner.id)}
+                      >
+                        <div className="flex items-center space-x-4 mb-4">
+                          <div className="w-16 h-16 rounded-lg bg-brand-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {partner.logo_url ? (
+                              <img 
+                                src={partner.logo_url} 
+                                alt={`${partner.name} logo`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Users className="w-8 h-8 text-brand-300" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-gray-900 text-lg">{partner.name}</h4>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {getPartnerBannerCount(partner.id)} banners existentes
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-brand-600 font-medium">Crear banner</span>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <ChevronRight className="w-5 h-5 text-brand-600" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        }
 
       default:
         return null;
@@ -238,18 +381,14 @@ const Index = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-brand-25 flex flex-col w-full">
-        <div className="flex flex-1">
-          <AppSidebar activeSection={activeSection} setActiveSection={setActiveSection} />
+      <div className="min-h-screen bg-brand-25 flex w-full">
+        <AppSidebar activeSection={activeSection} setActiveSection={handleSectionChange} />
           
-          <div className="flex-1 flex flex-col">
-            <HeaderContent activeSection={activeSection} setActiveSection={setActiveSection} />
-
+        <div className="flex-1 flex flex-col min-h-screen">
             {/* Main Content */}
-            <main className="flex-1 p-6 lg:p-8">
+          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
               {renderContent()}
             </main>
-          </div>
         </div>
       </div>
     </SidebarProvider>

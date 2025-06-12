@@ -16,6 +16,7 @@ interface Partner {
   benefits_description?: string;
   description?: string;
   reference_banners_urls?: string[];
+  product_photos_urls?: string[];
   status: string;
 }
 
@@ -30,6 +31,8 @@ interface BannerFormInputsProps {
   setBannerCopy: (value: string) => void;
   ctaCopy: string;
   setCtaCopy: (value: string) => void;
+  customPrompt: string;
+  setCustomPrompt: (value: string) => void;
   selectedStyle: string;
   setSelectedStyle: (value: string) => void;
   selectedFlavor: string;
@@ -96,6 +99,8 @@ const BannerFormInputs = ({
   setBannerCopy,
   ctaCopy,
   setCtaCopy,
+  customPrompt,
+  setCustomPrompt,
   selectedStyle,
   setSelectedStyle,
   selectedFlavor,
@@ -136,14 +141,15 @@ const BannerFormInputs = ({
 
   // Get partner reference images for image type selection
   const getPartnerReferenceImages = () => {
-    if (!selectedPartner?.reference_banners_urls || selectedPartner.reference_banners_urls.length === 0) {
-      return [];
+    if (!selectedPartner?.product_photos_urls || selectedPartner.product_photos_urls.length === 0) {
+      // Return default product photo options when no custom photos are available
+      return defaultFlavorReferences['foto-de-producto'] || [];
     }
     
-    return selectedPartner.reference_banners_urls.map((url, index) => ({
+    return selectedPartner.product_photos_urls.map((url, index) => ({
       id: `partner-image-${index}`,
       url,
-      title: `Referencia ${index + 1}`
+      title: `Producto ${index + 1}`
     }));
   };
 
@@ -152,35 +158,45 @@ const BannerFormInputs = ({
   const partnerReferenceImages = getPartnerReferenceImages();
 
   return (
-    <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0 rounded-xl max-w-xl mx-auto">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-            <Wand2 className="w-4 h-4 text-white" />
+    <Card className="bg-white border border-gray-200 shadow-sm max-w-4xl mx-auto">
+      {/* Header */}
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-violet-500 to-brand-500 rounded-xl flex items-center justify-center shadow-lg">
+            <Wand2 className="w-5 h-5 text-white" />
           </div>
           <div>
-            <CardTitle className="text-lg font-semibold text-gray-700">Crear Banner Personalizado</CardTitle>
-            <CardDescription className="text-sm text-gray-600">Configura tu banner con IA generativa</CardDescription>
+            <CardTitle className="text-xl font-bold text-gray-900">Crear Banner Personalizado</CardTitle>
+            <CardDescription className="text-gray-600">Configura tu banner con IA generativa</CardDescription>
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="space-y-3 p-4 pt-0">
+      {/* Form Content */}
+      <CardContent className="space-y-8">
         
+        {/* Step 1: Partner & Benefit Selection */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-sm font-semibold">1</div>
+            <h2 className="text-lg font-semibold text-gray-900">Información Básica</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Partner Selection */}
-        <div className="space-y-1.5">
-          <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Seleccionar Partner *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Partner *</Label>
           <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-            <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9 w-full">
-              <SelectValue placeholder={partnersLoading ? "Cargando partners..." : "Elige un partner comercial"} />
+                <SelectTrigger className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200">
+                  <SelectValue placeholder={partnersLoading ? "Cargando..." : "Selecciona un partner"} />
             </SelectTrigger>
             <SelectContent>
               {partners.map((partner) => (
                 <SelectItem key={partner.id} value={partner.id}>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-brand-500" />
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
                     {partner.name}
-                    <Badge variant="secondary" className="text-xs">
+                        <Badge variant="secondary" className="text-xs ml-auto">
                       {partner.status === 'active' ? 'Activo' : partner.status}
                     </Badge>
                   </div>
@@ -188,26 +204,21 @@ const BannerFormInputs = ({
               ))}
             </SelectContent>
           </Select>
-          {selectedPartner && (
-            <div className="text-xs text-gray-500 mt-1">
-              Estado: {selectedPartner.status === 'active' ? 'Activo' : selectedPartner.status}
-            </div>
-          )}
         </div>
 
-        {/* Select Benefit (replaces Banner Type) */}
+            {/* Benefit Selection */}
         {selectedPartnerId && (
-          <div className="space-y-1.5">
-            <Label htmlFor="benefit" className="text-sm font-medium text-gray-700">Seleccionar el Beneficio *</Label>
+              <div className="space-y-2">
+                <Label htmlFor="benefit" className="text-sm font-medium text-gray-700">Beneficio a destacar *</Label>
             {partnerBenefits.length > 0 ? (
               <Select value={bannerType} onValueChange={setBannerType}>
-                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-auto min-h-[36px] w-full">
-                  <SelectValue placeholder="Selecciona el beneficio a destacar" />
+                    <SelectTrigger className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200">
+                      <SelectValue placeholder="Selecciona el beneficio" />
                 </SelectTrigger>
-                <SelectContent className="max-w-[520px]">
+                    <SelectContent className="max-w-[400px]">
                   {partnerBenefits.map((benefit, index) => (
-                    <SelectItem key={index} value={benefit} className="whitespace-normal text-wrap max-w-full">
-                      <div className="py-1 leading-5 break-words">
+                        <SelectItem key={index} value={benefit} className="whitespace-normal text-wrap">
+                          <div className="py-1 leading-5 break-words max-w-[350px]">
                         {benefit}
                       </div>
                     </SelectItem>
@@ -215,17 +226,19 @@ const BannerFormInputs = ({
                 </SelectContent>
               </Select>
             ) : (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-700">Este partner no tiene beneficios configurados. Puedes editarlo para agregar beneficios.</p>
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-700">Este partner no tiene beneficios configurados.</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
 
-        {/* Promotion Discount (conditional) */}
+          {/* Conditional Discount */}
         {bannerType && bannerType.toLowerCase().includes('descuento') && (
-          <div className="space-y-1.5">
+            <div className="max-w-xs">
             <Label htmlFor="discount" className="text-sm font-medium text-gray-700">Porcentaje de Descuento *</Label>
+              <div className="relative mt-2">
             <Input
               id="discount"
               type="number"
@@ -233,28 +246,39 @@ const BannerFormInputs = ({
               max="99"
               value={promotionDiscount}
               onChange={(e) => setPromotionDiscount(e.target.value)}
-              placeholder="ej. 25"
-              className="rounded-lg border-gray-200 focus:border-brand-300 h-9"
-            />
-          </div>
-        )}
+                  placeholder="25"
+                  className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+              </div>
+            </div>
+          )}
+        </div>
 
+        {/* Step 2: Content */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-sm font-semibold">2</div>
+            <h2 className="text-lg font-semibold text-gray-900">Contenido del Banner</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Banner Copy */}
-        <div className="space-y-1.5">
-          <Label htmlFor="bannerCopy" className="text-sm font-medium text-gray-700">Texto del Banner *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="bannerCopy" className="text-sm font-medium text-gray-700">Texto Principal *</Label>
           <Textarea
             id="bannerCopy"
             value={bannerCopy}
             onChange={(e) => setBannerCopy(e.target.value)}
             placeholder="ej. Descubre los mejores productos para tu hogar"
             maxLength={150}
-            className="rounded-lg border-gray-200 focus:border-brand-300 min-h-[60px] resize-none text-sm"
+                className="min-h-[80px] resize-none border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
           />
           <div className="text-xs text-gray-500 text-right">{bannerCopy.length}/150</div>
         </div>
 
         {/* CTA Copy */}
-        <div className="space-y-1.5">
+            <div className="space-y-2">
           <Label htmlFor="ctaCopy" className="text-sm font-medium text-gray-700">Texto del Botón (CTA) *</Label>
           <Input
             id="ctaCopy"
@@ -262,145 +286,141 @@ const BannerFormInputs = ({
             onChange={(e) => setCtaCopy(e.target.value)}
             placeholder="ej. Comprar Ahora"
             maxLength={25}
-            className="rounded-lg border-gray-200 focus:border-brand-300 h-9"
+                className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
           />
           <div className="text-xs text-gray-500 text-right">{ctaCopy.length}/25</div>
+            </div>
+          </div>
+
+          {/* Custom Instructions */}
+          <div className="space-y-2">
+            <Label htmlFor="customPrompt" className="text-sm font-medium text-gray-700">
+              Instrucciones Adicionales <span className="text-xs font-normal text-gray-500">(opcional)</span>
+            </Label>
+            <Textarea
+              id="customPrompt"
+              value={customPrompt}
+              onChange={(e) => setCustomPrompt(e.target.value)}
+              placeholder="ej. Hazlo más moderno, usa colores vibrantes, incluye elementos tech..."
+              maxLength={200}
+              className="min-h-[60px] resize-none border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
+            />
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-gray-500">Instrucciones específicas para personalizar el diseño</div>
+              <div className="text-xs text-gray-500">{customPrompt.length}/200</div>
+            </div>
+          </div>
         </div>
 
-        {/* Style Selection with Partner Reference Banners */}
+        {/* Step 3: Visual Style */}
         {selectedPartnerId && (
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">Estilo Visual *</Label>
-            <div className="grid grid-cols-3 gap-2">
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-sm font-semibold">3</div>
+              <h2 className="text-lg font-semibold text-gray-900">Estilo Visual</h2>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {partnerReferenceBanners.map((banner) => (
                 <div
                   key={banner.id}
-                  className={`cursor-pointer rounded-lg border-2 transition-all ${
+                  className={`cursor-pointer rounded-xl border-2 transition-all duration-200 overflow-hidden ${
                     selectedStyle === banner.id 
-                      ? 'border-blue-500 ring-2 ring-blue-200' 
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-violet-500 ring-2 ring-violet-200 shadow-lg' 
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                   }`}
                   onClick={() => setSelectedStyle(banner.id)}
                 >
-                  <div className="aspect-video rounded-md overflow-hidden">
+                  <div className="aspect-video overflow-hidden">
                     <img 
                       src={banner.url}
                       alt={banner.title}
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <p className="text-xs text-center text-gray-600 py-1">{banner.title}</p>
+                  <div className="p-2 bg-white">
+                    <p className="text-xs font-medium text-gray-700 text-center">{banner.title}</p>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Image Type Selection with Partner Reference Images */}
+        {/* Step 4: Image Type */}
         {selectedPartnerId && (
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-gray-700">Tipo de Imagen *</Label>
-            {partnerReferenceImages.length > 0 ? (
-              <div className="grid grid-cols-3 gap-2">
-                {partnerReferenceImages.map((image) => (
-                  <div
-                    key={image.id}
-                    className={`cursor-pointer rounded-lg border-2 transition-all ${
-                      selectedFlavor === image.id 
-                        ? 'border-blue-500 ring-2 ring-blue-200' 
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                    onClick={() => setSelectedFlavor(image.id)}
-                  >
-                    <div className="aspect-video rounded-md overflow-hidden">
-                      <img 
-                        src={image.url}
-                        alt={image.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <p className="text-xs text-center text-gray-600 py-1">{image.title}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <Select value={selectedFlavor} onValueChange={(value) => {
-                setSelectedFlavor(value);
-                setSelectedReferenceImage('');
-              }}>
-                <SelectTrigger className="rounded-lg border-gray-200 focus:border-brand-300 h-9">
-                  <SelectValue placeholder="Selecciona el tipo de imagen" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="contextual">🏪 Contextual</SelectItem>
-                  <SelectItem value="foto-de-producto">📦 Foto de Producto</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
-        )}
-
-        {/* Reference Images for Flavor Selection (only if using default options) */}
-        {selectedFlavor && !partnerReferenceImages.length && defaultFlavorReferences[selectedFlavor as keyof typeof defaultFlavorReferences] && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">Imagen de Referencia *</Label>
-            <div className="grid grid-cols-3 gap-2">
-              {defaultFlavorReferences[selectedFlavor as keyof typeof defaultFlavorReferences].map((ref) => (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-6 h-6 bg-violet-100 text-violet-600 rounded-full flex items-center justify-center text-sm font-semibold">4</div>
+              <h2 className="text-lg font-semibold text-gray-900">Tipo de Imagen</h2>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {partnerReferenceImages.map((image) => (
                 <div
-                  key={ref.id}
-                  className={`cursor-pointer rounded-lg border-2 transition-all ${
-                    selectedReferenceImage === ref.id 
-                      ? 'border-blue-500 ring-2 ring-blue-200' 
-                      : 'border-gray-200 hover:border-gray-300'
+                  key={image.id}
+                  className={`cursor-pointer rounded-xl border-2 transition-all duration-200 overflow-hidden ${
+                    selectedFlavor === image.id 
+                      ? 'border-violet-500 ring-2 ring-violet-200 shadow-lg' 
+                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                   }`}
-                  onClick={() => setSelectedReferenceImage(ref.id)}
+                  onClick={() => setSelectedFlavor(image.id)}
                 >
-                  <div className="aspect-video rounded-md overflow-hidden">
+                  <div className="aspect-video overflow-hidden">
                     <img 
-                      src={ref.url}
-                      alt={ref.title}
+                      src={image.url}
+                      alt={image.title}
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <p className="text-xs text-center text-gray-600 py-1">{ref.title}</p>
+                  <div className="p-2 bg-white">
+                    <p className="text-xs font-medium text-gray-700 text-center">{image.title}</p>
+                  </div>
                 </div>
               ))}
             </div>
+            
+            {partnerReferenceImages.length === 0 && (
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-700">Este partner no tiene fotos de producto. Se usarán imágenes por defecto.</p>
+              </div>
+            )}
           </div>
         )}
-
         
         {/* Generation Progress */}
         {isGenerating && (
-          <div className="space-y-2 mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center gap-2">
-              <Loader className="w-4 h-4 animate-spin text-blue-600" />
-              <span className="text-sm font-medium text-blue-700">Generando tu banner...</span>
+          <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
+            <div className="flex items-center gap-3 mb-3">
+              <Loader className="w-5 h-5 animate-spin text-violet-600" />
+              <span className="font-medium text-violet-900">Generando tu banner personalizado...</span>
             </div>
-            <Progress value={progress} className="w-full h-2" />
-            <p className="text-xs text-blue-600">Esto puede tomar unos segundos</p>
+            <Progress value={progress} className="w-full h-3 mb-2" />
+            <p className="text-sm text-violet-700">Esto puede tomar unos segundos. ¡Tu banner estará listo pronto!</p>
           </div>
         )}
 
         {/* Generate Button */}
+        <div className="pt-4 border-t border-gray-100">
         <Button
           onClick={onGenerate}
-          disabled={isGenerating}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium py-2 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 mt-4 h-10"
-          size="sm"
+            disabled={isGenerating || !selectedPartnerId || !bannerType || !bannerCopy || !ctaCopy || !selectedStyle || !selectedFlavor}
+            className="w-full bg-gradient-to-r from-violet-600 to-brand-600 hover:from-violet-700 hover:to-brand-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 h-12"
         >
           {isGenerating ? (
             <>
-              <Loader className="w-4 h-4 mr-2 animate-spin" />
-              Generando...
+                <Loader className="w-5 h-5 mr-2 animate-spin" />
+                Generando Banner...
             </>
           ) : (
             <>
-              <Wand2 className="w-4 h-4 mr-2" />
+                <Wand2 className="w-5 h-5 mr-2" />
               Generar Banner con IA
             </>
           )}
         </Button>
+        </div>
+
       </CardContent>
     </Card>
   );

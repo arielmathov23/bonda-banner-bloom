@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { Search, Download, Eye, Trash2, Calendar, Image as ImageIcon } from 'lucide-react';
+import { Search, Download, Eye, Trash2, Calendar, Image as ImageIcon, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,39 +13,46 @@ interface BannerHistoryItem {
   imageUrl?: string;
   status: 'completed' | 'processing' | 'failed';
   dimensions: string;
+  partnerId?: string;
 }
 
-const BannerHistory = () => {
+interface BannerHistoryProps {
+  partnerId?: string;
+  partnerName?: string;
+  onCreateBanner?: () => void;
+}
+
+const BannerHistory = ({ partnerId, partnerName, onCreateBanner }: BannerHistoryProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   
-  const [banners] = useState<BannerHistoryItem[]>([
-    {
-      id: '1',
-      title: 'Campaña de Rebajas de Verano',
-      partner: 'Socio A',
-      createdAt: new Date(2024, 4, 25),
-      status: 'completed',
-      dimensions: '1200x628',
-      imageUrl: '/placeholder.svg'
-    },
-    {
-      id: '2',
-      title: 'Promoción Black Friday',
-      partner: 'Socio B',
-      createdAt: new Date(2024, 4, 24),
-      status: 'completed',
-      dimensions: '800x600',
-      imageUrl: '/placeholder.svg'
-    },
-    {
-      id: '3',
-      title: 'Especial de Navidad',
-      partner: 'Socio C',
-      createdAt: new Date(2024, 4, 23),
-      status: 'processing',
-      dimensions: '1080x1080'
+  // Get saved banners from localStorage
+  const getSavedBanners = () => {
+    try {
+      const saved = localStorage.getItem('savedBanners');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
-  ]);
+  };
+
+  const [savedBanners] = useState(() => getSavedBanners());
+  
+  // Convert saved banners to BannerHistoryItem format and filter by partner if specified
+  const allBanners: BannerHistoryItem[] = savedBanners.map((banner: any) => ({
+    id: banner.id,
+    title: banner.selectedOption?.copy || `Banner ${banner.id}`,
+    partner: banner.partnerName,
+    partnerId: banner.partnerId,
+    createdAt: new Date(banner.createdAt),
+    status: 'completed' as const,
+    dimensions: '1792x1024',
+    imageUrl: banner.selectedOption?.desktopUrl
+  }));
+
+  // Filter by partner if partnerId is provided
+  const banners = partnerId 
+    ? allBanners.filter(banner => (banner as any).partnerId === partnerId)
+    : allBanners;
 
   const filteredBanners = banners.filter(banner =>
     banner.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -81,11 +87,18 @@ const BannerHistory = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h2 className="text-2xl font-semibold text-gray-900">Historial de Banners</h2>
-        <p className="text-gray-600 mt-1">Ve y gestiona tus banners generados anteriormente</p>
+      {/* Create Banner Button for Partner View */}
+      {partnerName && onCreateBanner && (
+        <div className="flex justify-end">
+          <Button 
+            onClick={onCreateBanner}
+            className="bg-brand-500 hover:bg-brand-600 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Crear Banner
+          </Button>
       </div>
+      )}
 
       {/* Search */}
       <Card className="bg-white border border-brand-100 shadow-sm">

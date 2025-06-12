@@ -19,6 +19,7 @@ export type Database = {
           logo_url: string | null
           name: string
           partner_url: string | null
+          product_photos_urls: string[] | null
           reference_banners_urls: string[] | null
           regions: string[]
           status: string | null
@@ -33,6 +34,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           partner_url?: string | null
+          product_photos_urls?: string[] | null
           reference_banners_urls?: string[] | null
           regions: string[]
           status?: string | null
@@ -47,6 +49,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           partner_url?: string | null
+          product_photos_urls?: string[] | null
           reference_banners_urls?: string[] | null
           regions?: string[]
           status?: string | null

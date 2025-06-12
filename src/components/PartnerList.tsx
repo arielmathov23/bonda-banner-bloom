@@ -1,16 +1,19 @@
-
 import React, { useState, useEffect } from 'react';
-import { Search, MoreHorizontal, MapPin, Globe, Mail, Users } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Search, MoreHorizontal, MapPin, Globe, Users, Edit, Trash2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { usePartners } from '@/hooks/usePartners';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { usePartners, Partner } from '@/hooks/usePartners';
 
-const PartnerList = () => {
+interface PartnerListProps {
+  onEditPartner?: (partner: Partner) => void;
+}
+
+const PartnerList = ({ onEditPartner }: PartnerListProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { partners, isLoading, fetchPartners } = usePartners();
+  const { partners, isLoading, deletePartner, fetchPartners } = usePartners();
 
   // Refresh partners when component mounts or when we want to ensure fresh data
   useEffect(() => {
@@ -29,19 +32,6 @@ const PartnerList = () => {
     )
   );
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-700 border-green-200';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-700 border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-700 border-gray-200';
-    }
-  };
-
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
@@ -50,142 +40,161 @@ const PartnerList = () => {
     return regions.map(region => regionLabels[region] || region).join(', ');
   };
 
-  const handleRefresh = () => {
-    console.log('Manually refreshing partners...');
-    fetchPartners();
+  const handleEditPartner = (partner: Partner) => {
+    if (onEditPartner) {
+      onEditPartner(partner);
+    }
+  };
+
+  const handleDeletePartner = async (partnerId: string) => {
+    await deletePartner(partnerId);
   };
 
   if (isLoading) {
     return (
-      <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-        <CardHeader>
-          <CardTitle className="text-xl font-bold text-gray-900">Partner Directory</CardTitle>
-          <CardDescription>Loading partners...</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
+      </div>
     );
   }
 
   return (
-    <Card className="bg-white/60 backdrop-blur-sm border-0 shadow-lg">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-bold text-gray-900">Partner Directory</CardTitle>
-            <CardDescription>Manage your existing partners ({partners.length} total)</CardDescription>
-          </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh}
-            className="ml-4"
-          >
-            Refresh
-          </Button>
-        </div>
-        
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <Input
-            placeholder="Search partners..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white/50 border-gray-200 focus:border-blue-500"
-          />
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          {partners.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No partners yet</h3>
-              <p className="text-gray-500 mb-4">Create your first partner to get started with banner generation</p>
-              <p className="text-sm text-gray-400">Use the form on the left to add a new partner</p>
-            </div>
-          ) : filteredPartners.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No partners found matching your search</p>
-            </div>
-          ) : (
-            filteredPartners.map((partner) => (
-              <div
-                key={partner.id}
-                className="bg-white/50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-all duration-200 hover:scale-[1.02]"
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <Avatar className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600">
-                      {partner.logo_url ? (
-                        <AvatarImage src={partner.logo_url} alt={partner.name} />
-                      ) : null}
-                      <AvatarFallback className="text-white font-semibold">
-                        {getInitials(partner.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
-                          {partner.name}
-                        </h3>
-                        <Badge className={getStatusColor(partner.status)}>
-                          {partner.status}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="flex items-center text-sm text-gray-600">
-                          <MapPin className="w-4 h-4 mr-2 text-gray-400" />
-                          {formatRegions(partner.regions)}
-                        </div>
-                        
-                        {partner.partner_url && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Globe className="w-4 h-4 mr-2 text-gray-400" />
-                            <a 
-                              href={partner.partner_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="hover:text-blue-600 truncate"
-                            >
-                              {partner.partner_url}
-                            </a>
-                          </div>
-                        )}
+    <div className="space-y-6">
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <Input
+          placeholder="Buscar socios..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 bg-white border-brand-200 focus:border-brand-500 h-10"
+        />
+      </div>
 
-                        {partner.benefits_description && (
-                          <div className="text-sm text-gray-600 mt-2">
-                            <p className="line-clamp-2">{partner.benefits_description}</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="mt-3 flex items-center justify-between">
-                        <span className="text-xs text-gray-500">
-                          Created {new Date(partner.created_at).toLocaleDateString()}
+      {/* Partners Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {partners.length === 0 ? (
+          <div className="col-span-full">
+            <Card className="bg-white border border-brand-100 shadow-sm">
+              <CardContent className="p-12 text-center">
+                <div className="w-16 h-16 bg-brand-50 rounded-lg flex items-center justify-center mx-auto mb-4">
+                  <Users className="w-8 h-8 text-brand-300" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No hay socios aún</h3>
+                <p className="text-gray-500 mb-4">Crea tu primer socio para comenzar a generar banners</p>
+                <p className="text-sm text-gray-400">Usa el botón "Crear Socio" para agregar uno nuevo</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : filteredPartners.length === 0 ? (
+          <div className="col-span-full">
+            <Card className="bg-white border border-brand-100 shadow-sm">
+              <CardContent className="p-8 text-center">
+                <p className="text-gray-500">No se encontraron socios que coincidan con tu búsqueda</p>
+              </CardContent>
+            </Card>
+          </div>
+        ) : (
+          filteredPartners.map((partner) => (
+            <Card
+              key={partner.id}
+              className="bg-white border border-brand-100 shadow-sm hover:shadow-md transition-all duration-200 hover:border-brand-300"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-12 h-12 rounded-lg bg-brand-50 border border-brand-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {partner.logo_url ? (
+                      <img 
+                        src={partner.logo_url} 
+                        alt={`${partner.name} logo`}
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-brand-400 to-brand-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-semibold text-sm">
+                          {getInitials(partner.name)}
                         </span>
-                        
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
                       </div>
+                    )}
+                  </div>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-brand-50">
+                        <MoreHorizontal className="w-4 h-4 text-gray-400" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEditPartner(partner)}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Editar Socio
+                      </DropdownMenuItem>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Eliminar Socio
+                          </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Esto eliminará permanentemente "{partner.name}" y todos los datos asociados. Esta acción no se puede deshacer.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction 
+                              onClick={() => handleDeletePartner(partner.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Eliminar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                
+                <div className="space-y-2">
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1 leading-tight">
+                      {partner.name}
+                    </h3>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <MapPin className="w-3 h-3 mr-1 text-gray-400" />
+                      {formatRegions(partner.regions)}
                     </div>
                   </div>
+                  
+                  {partner.partner_url && (
+                    <div className="flex items-center text-xs text-gray-500">
+                      <Globe className="w-3 h-3 mr-1 text-gray-400" />
+                      <a 
+                        href={partner.partner_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="hover:text-brand-600 truncate"
+                      >
+                        {partner.partner_url.replace(/^https?:\/\//, '').substring(0, 20)}...
+                      </a>
+                    </div>
+                  )}
+                  
+                  <div className="pt-2 border-t border-brand-100">
+                    <span className="text-xs text-gray-400">
+                      {new Date(partner.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-        </div>
-      </CardContent>
-    </Card>
+              </CardContent>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
   );
 };
 
