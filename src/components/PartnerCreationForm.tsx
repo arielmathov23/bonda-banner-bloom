@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, Check, AlertCircle, Download, Plus, X, Palette, ArrowLeft, Trash2 } from 'lucide-react';
+import { Upload, Check, AlertCircle, Download, Plus, X, Palette, ArrowLeft, Trash2, Brain, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { usePartners, Partner, UpdatePartnerData } from '@/hooks/usePartners';
+import { analyzeReferenceStyle, isStyleAnalysisAvailable, StyleAnalysis } from '@/lib/style-analysis';
+import { toast } from '@/hooks/use-toast';
 
 interface PartnerCreationFormProps {
   editingPartner?: Partner | null;
@@ -50,6 +52,11 @@ const PartnerCreationForm = ({ editingPartner, onSuccess }: PartnerCreationFormP
     referencePhotos: false,
     productPhotos: false,
   });
+
+  // Style analysis state
+  const [styleAnalysis, setStyleAnalysis] = useState<StyleAnalysis | null>(null);
+  const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
+  const [styleAnalysisProgress, setStyleAnalysisProgress] = useState('');
 
   // Load existing partner data when editing
   useEffect(() => {
@@ -122,6 +129,8 @@ const PartnerCreationForm = ({ editingPartner, onSuccess }: PartnerCreationFormP
   // Font options for dropdowns
   const fontOptions = [
     'DM Sans',
+    'Roboto',
+    'Cerebi Sans',
     'Arial',
     'Helvetica',
     'Georgia',
@@ -300,6 +309,51 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
       return;
     }
 
+    let currentStyleAnalysis = styleAnalysis;
+
+    // Perform style analysis if reference banners are provided and OpenAI is available
+    if (referenceBanners.length > 0 && isStyleAnalysisAvailable() && !editingPartner) {
+      try {
+        setIsAnalyzingStyle(true);
+        setStyleAnalysisProgress('Analizando estilo de banners de referencia...');
+        
+        toast({
+          title: "Analizando estilo",
+          description: "OpenAI está analizando tus banners de referencia para extraer el ADN visual de la marca.",
+        });
+
+        currentStyleAnalysis = await analyzeReferenceStyle(
+          referenceBanners,
+          formData.partnerName,
+          formData.description,
+          formData.regions
+        );
+        
+        setStyleAnalysis(currentStyleAnalysis);
+        setStyleAnalysisProgress('Análisis de estilo completado');
+        
+        toast({
+          title: "Análisis completado",
+          description: "Se ha extraído exitosamente el estilo visual de los banners de referencia.",
+        });
+
+      } catch (error) {
+        console.error('Error analyzing style:', error);
+        setStyleAnalysisProgress('Error en el análisis de estilo');
+        
+        toast({
+          title: "Error en el análisis",
+          description: "No se pudo analizar el estilo de los banners. El partner se creará sin análisis de estilo.",
+          variant: "destructive",
+        });
+        
+        // Continue with partner creation even if style analysis fails
+        currentStyleAnalysis = null;
+      } finally {
+        setIsAnalyzingStyle(false);
+      }
+    }
+
     // Generate brand manual file from form data
     const brandManualFile = generateBrandManualData();
 
@@ -313,6 +367,8 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
       brand_manual: new File([brandManualFile], 'brand_manual.csv', { type: 'text/csv' }),
       reference_banners: referenceBanners.length > 0 ? referenceBanners : undefined,
       product_photos: productPhotos.length > 0 ? productPhotos : undefined,
+      // Include style analysis if available
+      reference_style_analysis: currentStyleAnalysis || undefined,
     };
 
     let success = false;
@@ -358,6 +414,8 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
       setProductPhotos([]);
       setExistingProductPhotos([]);
       setCurrentBenefit('');
+      setStyleAnalysis(null);
+      setStyleAnalysisProgress('');
       
       // Call success callback
       if (onSuccess) {
@@ -529,17 +587,17 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
             
             {/* Show existing logo if available */}
             {existingLogo && !logo && (
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img 
                       src={existingLogo} 
                       alt="Logo actual" 
-                      className="w-12 h-12 object-contain bg-white rounded border"
+                      className="w-16 h-16 object-contain bg-white rounded border"
                     />
                     <div>
                       <p className="text-sm font-medium text-blue-700">Logo actual</p>
-                      <p className="text-xs text-blue-600">Subir un nuevo logo reemplazará este</p>
+                      <p className="text-xs text-blue-600">Elimina para subir uno nuevo</p>
                     </div>
                   </div>
                   <Button
@@ -558,7 +616,7 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
             
             {/* Show newly uploaded logo preview */}
             {logo && (
-              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <p className="text-sm font-medium text-green-700 mb-3">Logo seleccionado para subir:</p>
                 <div className="flex items-center gap-4">
                   <div className="relative group">
@@ -586,39 +644,41 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
               </div>
             )}
             
-            <div 
-              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
-                dragStates.logo 
-                  ? 'border-brand-400 bg-brand-50/50' 
-                  : 'border-gray-300 hover:border-blue-400'
-              }`}
-              onDragOver={(e) => handleDragOver(e, 'logo')}
-              onDragLeave={(e) => handleDragLeave(e, 'logo')}
-              onDrop={(e) => handleDrop(e, 'logo')}
-            >
-              <div className="text-center">
-                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Arrastra y suelta el logo aquí o haz clic para subir</p>
-                  <p className="text-xs text-gray-500">Formato PNG, tamaño máximo: 5MB</p>
+            {/* Only show drag and drop when no logo is defined */}
+            {!existingLogo && !logo && (
+              <div 
+                className={`border-2 border-dashed rounded-lg p-4 bg-white/20 transition-all duration-200 ${
+                  dragStates.logo 
+                    ? 'border-brand-400 bg-brand-50/30' 
+                    : 'border-gray-300 hover:border-blue-400'
+                }`}
+                onDragOver={(e) => handleDragOver(e, 'logo')}
+                onDragLeave={(e) => handleDragLeave(e, 'logo')}
+                onDrop={(e) => handleDrop(e, 'logo')}
+              >
+                <div className="text-center">
+                  <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-600 mb-1">Arrastra el logo aquí</p>
+                  <p className="text-xs text-gray-500 mb-3">PNG • Máx. 5MB</p>
+                  <input
+                    type="file"
+                    id="logo"
+                    className="hidden"
+                    accept=".png"
+                    onChange={handleLogoUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('logo')?.click()}
+                    className="text-xs"
+                  >
+                    Elegir Logo
+                  </Button>
                 </div>
-                <input
-                  type="file"
-                  id="logo"
-                  className="hidden"
-                  accept=".png"
-                  onChange={handleLogoUpload}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => document.getElementById('logo')?.click()}
-                >
-                  {existingLogo || logo ? 'Cambiar Logo' : 'Elegir Logo'}
-                </Button>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Brand Guidelines */}
@@ -794,10 +854,64 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
 
           {/* Reference Banners */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-gray-700">
-              Banners de Referencia (Opcional)
-              <span className="text-xs text-gray-500 ml-2">(para contexto de IA)</span>
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-gray-700">
+                Banners de Referencia (Opcional)
+                <span className="text-xs text-gray-500 ml-2">(para contexto de IA y análisis de estilo)</span>
+              </Label>
+              
+              {/* Style Analysis Status */}
+              {isStyleAnalysisAvailable() && !editingPartner && (
+                <div className="flex items-center gap-2 text-xs">
+                  <Brain className="w-4 h-4 text-brand-500" />
+                  <span className="text-brand-600 font-medium">
+                    Análisis de estilo AI disponible
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* Style Analysis Progress */}
+            {isAnalyzingStyle && (
+              <div className="bg-brand-50 border border-brand-200 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand-500"></div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Eye className="w-4 h-4 text-brand-500" />
+                      <span className="text-sm font-medium text-brand-700">
+                        Análisis de estilo en progreso
+                      </span>
+                    </div>
+                    <p className="text-xs text-brand-600 mt-1">
+                      {styleAnalysisProgress}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Style Analysis Complete */}
+            {styleAnalysis && !isAnalyzingStyle && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-green-600" />
+                      <span className="text-sm font-medium text-green-700">
+                        Análisis de estilo completado
+                      </span>
+                    </div>
+                    <p className="text-xs text-green-600 mt-1">
+                      Se extrajo el ADN visual de la marca exitosamente
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
             
             {/* Show existing reference banners */}
             {existingReferenceBanners.length > 0 && (
@@ -855,9 +969,9 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
             )}
             
             <div 
-              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
+              className={`border-2 border-dashed rounded-lg p-4 bg-white/20 transition-all duration-200 ${
                 dragStates.referenceBanners 
-                  ? 'border-brand-400 bg-brand-50/50' 
+                  ? 'border-brand-400 bg-brand-50/30' 
                   : 'border-gray-300 hover:border-blue-400'
               }`}
               onDragOver={(e) => handleDragOver(e, 'referenceBanners')}
@@ -865,11 +979,9 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
               onDrop={(e) => handleDrop(e, 'referenceBanners')}
             >
               <div className="text-center">
-                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Arrastra y suelta banners aquí o haz clic para subir</p>
-                  <p className="text-xs text-gray-500">Solo imágenes, máximo 10MB cada una. Puedes subir múltiples archivos</p>
-                </div>
+                <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600 mb-1">Arrastra banners aquí</p>
+                <p className="text-xs text-gray-500 mb-3">Imágenes • Máx. 10MB • Múltiples archivos</p>
                 <input
                   type="file"
                   id="referenceBanners"
@@ -881,10 +993,11 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
                 <Button
                   type="button"
                   variant="outline"
-                  className="mt-4"
+                  size="sm"
                   onClick={() => document.getElementById('referenceBanners')?.click()}
+                  className="text-xs"
                 >
-                  {existingReferenceBanners.length > 0 ? 'Agregar Más Banners' : 'Elegir Banners de Referencia'}
+                  {existingReferenceBanners.length > 0 ? 'Agregar Más' : 'Elegir Banners de Referencia'}
                 </Button>
               </div>
             </div>
@@ -953,9 +1066,9 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
             )}
             
             <div 
-              className={`border-2 border-dashed rounded-lg p-6 bg-white/30 transition-all duration-200 ${
+              className={`border-2 border-dashed rounded-lg p-4 bg-white/20 transition-all duration-200 ${
                 dragStates.productPhotos 
-                  ? 'border-brand-400 bg-brand-50/50' 
+                  ? 'border-brand-400 bg-brand-50/30' 
                   : 'border-gray-300 hover:border-blue-400'
               }`}
               onDragOver={(e) => handleDragOver(e, 'productPhotos')}
@@ -963,11 +1076,9 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
               onDrop={(e) => handleDrop(e, 'productPhotos')}
             >
               <div className="text-center">
-                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">Arrastra y suelta fotos del producto aquí o haz clic para subir</p>
-                  <p className="text-xs text-gray-500">Solo imágenes, máximo 10MB cada una. Puedes subir múltiples archivos</p>
-                </div>
+                <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-600 mb-1">Arrastra fotos del producto aquí</p>
+                <p className="text-xs text-gray-500 mb-3">Imágenes • Máx. 10MB • Múltiples archivos</p>
                 <input
                   type="file"
                   id="productPhotos"
@@ -979,10 +1090,11 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
                 <Button
                   type="button"
                   variant="outline"
-                  className="mt-4"
+                  size="sm"
                   onClick={() => document.getElementById('productPhotos')?.click()}
+                  className="text-xs"
                 >
-                  {existingProductPhotos.length > 0 ? 'Agregar Más Fotos' : 'Elegir Fotos del Producto'}
+                  {existingProductPhotos.length > 0 ? 'Agregar Más' : 'Elegir Fotos del Producto'}
                 </Button>
               </div>
             </div>
@@ -990,10 +1102,15 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
 
           <Button
             type="submit"
-            disabled={isLoading || !formData.partnerName || formData.regions.length === 0}
+            disabled={isLoading || isAnalyzingStyle || !formData.partnerName || formData.regions.length === 0}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
           >
-            {isLoading ? (
+            {isAnalyzingStyle ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Analizando estilo con AI...
+              </div>
+            ) : isLoading ? (
               <div className="flex items-center">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                 {editingPartner ? 'Actualizando Partner...' : 'Creando Partner...'}

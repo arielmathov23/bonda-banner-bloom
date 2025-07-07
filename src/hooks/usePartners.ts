@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { StyleAnalysis } from '@/lib/style-analysis';
 
 export interface Partner {
   id: string;
@@ -13,6 +14,7 @@ export interface Partner {
   brand_manual_url?: string;
   reference_banners_urls?: string[];
   product_photos_urls?: string[];
+  reference_style_analysis?: StyleAnalysis;
   status: 'active' | 'pending' | 'inactive';
   created_at: string;
   updated_at: string;
@@ -28,6 +30,7 @@ export interface CreatePartnerData {
   brand_manual?: File;
   reference_banners?: File[];
   product_photos?: File[];
+  reference_style_analysis?: StyleAnalysis;
 }
 
 export interface UpdatePartnerData extends CreatePartnerData {
@@ -55,18 +58,12 @@ export const usePartners = () => {
       
       // Type cast the data to ensure status is properly typed
       const typedPartners = (data || []).map(partner => {
-        // Temporarily parse product photos from reference_banners_urls
-        const allBanners = partner.reference_banners_urls || [];
-        const referenceBanners = allBanners.filter(url => !url.startsWith('PRODUCT:'));
-        const productPhotos = allBanners
-          .filter(url => url.startsWith('PRODUCT:'))
-          .map(url => url.replace('PRODUCT:', ''));
-
         return {
           ...partner,
           status: (partner.status || 'active') as 'active' | 'pending' | 'inactive',
-          reference_banners_urls: referenceBanners,
-          product_photos_urls: productPhotos,
+          reference_banners_urls: partner.reference_banners_urls || [],
+          product_photos_urls: partner.product_photos_urls || [],
+          reference_style_analysis: partner.reference_style_analysis as unknown as StyleAnalysis | undefined,
         };
       });
       
@@ -87,22 +84,49 @@ export const usePartners = () => {
       const fileExt = file.name.split('.').pop();
       const fileName = `${folder}/${Date.now()}-${Math.random()}.${fileExt}`;
       
-      console.log('Uploading file:', fileName);
+      console.log('Uploading file:', fileName, 'Size:', file.size, 'Type:', file.type);
       
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('partner-assets')
         .upload(fileName, file);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error details:', {
+          message: uploadError.message,
+          name: uploadError.name,
+          stack: uploadError.stack,
+          error: uploadError
+        });
+        throw uploadError;
+      }
 
-      const { data } = supabase.storage
+      console.log('Upload successful, data:', uploadData);
+
+      const { data: urlData } = supabase.storage
         .from('partner-assets')
         .getPublicUrl(fileName);
 
-      console.log('File uploaded successfully:', data.publicUrl);
-      return data.publicUrl;
+      console.log('File uploaded successfully:', urlData.publicUrl);
+      
+      // Test if the URL is accessible
+      try {
+        const response = await fetch(urlData.publicUrl, { method: 'HEAD' });
+        console.log('URL accessibility test:', response.status, response.statusText);
+      } catch (fetchError) {
+        console.warn('URL accessibility test failed:', fetchError);
+      }
+      
+      return urlData.publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
+      console.error('File details:', { name: file.name, size: file.size, type: file.type });
+      
+      toast({
+        title: "Error uploading file",
+        description: `Failed to upload ${file.name}: ${error}`,
+        variant: "destructive",
+      });
+      
       return null;
     }
   };
@@ -149,12 +173,6 @@ export const usePartners = () => {
         console.log('Product photos uploaded:', productPhotosUrls);
       }
 
-      // Temporarily store product photos in reference_banners_urls with prefix
-      const allReferenceBanners = [
-        ...referenceBannersUrls,
-        ...productPhotosUrls.map(url => `PRODUCT:${url}`)
-      ];
-
       // Insert partner into database
       const insertData = {
         name: partnerData.name,
@@ -164,9 +182,9 @@ export const usePartners = () => {
         description: partnerData.description || null,
         logo_url: logoUrl,
         brand_manual_url: brandManualUrl,
-        reference_banners_urls: allReferenceBanners,
-        // Temporarily comment out until column is added
-        // product_photos_urls: productPhotosUrls,
+        reference_banners_urls: referenceBannersUrls,
+        product_photos_urls: productPhotosUrls,
+        reference_style_analysis: partnerData.reference_style_analysis as unknown as any || null,
       };
 
       console.log('Inserting partner with data:', insertData);
@@ -216,19 +234,13 @@ export const usePartners = () => {
       let logoUrl = partnerData.existingLogo !== undefined ? partnerData.existingLogo : existingPartner.logo_url;
       let brandManualUrl = existingPartner.brand_manual_url;
       
-      // Parse existing banners to separate reference banners from product photos
-      const existingAllBanners = existingPartner.reference_banners_urls || [];
-      const existingReferenceBanners = existingAllBanners.filter(url => !url.startsWith('PRODUCT:'));
-      const existingProductPhotosFromBanners = existingAllBanners
-        .filter(url => url.startsWith('PRODUCT:'))
-        .map(url => url.replace('PRODUCT:', ''));
-      
+      // Use existing URLs directly from the separate columns
       let referenceBannersUrls = partnerData.existingReferenceBanners !== undefined 
         ? partnerData.existingReferenceBanners 
-        : existingReferenceBanners;
+        : existingPartner.reference_banners_urls || [];
       let productPhotosUrls = partnerData.existingProductPhotos !== undefined
         ? partnerData.existingProductPhotos
-        : existingProductPhotosFromBanners;
+        : existingPartner.product_photos_urls || [];
 
       // Upload new logo if provided
       if (partnerData.logo) {
@@ -264,12 +276,6 @@ export const usePartners = () => {
         console.log('New product photos uploaded:', newUrls);
       }
 
-      // Temporarily store product photos in reference_banners_urls with prefix
-      const allReferenceBanners = [
-        ...referenceBannersUrls,
-        ...productPhotosUrls.map(url => `PRODUCT:${url}`)
-      ];
-
       // Update partner in database
       const updateData = {
         name: partnerData.name,
@@ -279,9 +285,9 @@ export const usePartners = () => {
         description: partnerData.description || null,
         logo_url: logoUrl,
         brand_manual_url: brandManualUrl,
-        reference_banners_urls: allReferenceBanners,
-        // Temporarily comment out until column is added
-        // product_photos_urls: productPhotosUrls,
+        reference_banners_urls: referenceBannersUrls,
+        product_photos_urls: productPhotosUrls,
+        reference_style_analysis: partnerData.reference_style_analysis as unknown as any || null,
         updated_at: new Date().toISOString(),
       };
 

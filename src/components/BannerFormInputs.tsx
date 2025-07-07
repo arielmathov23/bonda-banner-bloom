@@ -37,11 +37,15 @@ interface BannerFormInputsProps {
   setSelectedStyle: (value: string) => void;
   selectedFlavor: string;
   setSelectedFlavor: (value: string) => void;
+  aiService: 'openai' | 'flux';
+  setAiService: (value: 'openai' | 'flux') => void;
   partners: Partner[];
   partnersLoading: boolean;
   selectedPartner?: Partner;
   isGenerating: boolean;
+  isFraming?: boolean;
   progress: number;
+  progressStatus?: string;
   onGenerate: () => void;
 }
 
@@ -51,42 +55,23 @@ const defaultStyleReferences = {
   'vibrante': 'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07'
 };
 
-const defaultFlavorReferences = {
-  'contextual': [
-    {
-      id: 'contextual-1',
-      url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d',
-      title: 'Tienda moderna'
-    },
-    {
-      id: 'contextual-2', 
-      url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8',
-      title: 'Ambiente comercial'
-    },
-    {
-      id: 'contextual-3',
-      url: 'https://images.unsplash.com/photo-1555529902-6d31ec0be7a9',
-      title: 'Espacio de compras'
-    }
-  ],
-  'foto-de-producto': [
-    {
-      id: 'product-1',
-      url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
-      title: 'Producto destacado'
-    },
-    {
-      id: 'product-2',
-      url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e',
-      title: 'Producto premium'
-    },
-    {
-      id: 'product-3',
-      url: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f',
-      title: 'Producto elegante'
-    }
-  ]
-};
+const defaultProductImages = [
+  {
+    id: 'product-1',
+    url: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30',
+    title: 'Producto 1'
+  },
+  {
+    id: 'product-2',
+    url: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e',
+    title: 'Producto 2'
+  },
+  {
+    id: 'product-3',
+    url: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f',
+    title: 'Producto 3'
+  }
+];
 
 const BannerFormInputs = ({
   selectedPartnerId,
@@ -105,11 +90,15 @@ const BannerFormInputs = ({
   setSelectedStyle,
   selectedFlavor,
   setSelectedFlavor,
+  aiService,
+  setAiService,
   partners,
   partnersLoading,
   selectedPartner,
   isGenerating,
+  isFraming = false,
   progress,
+  progressStatus,
   onGenerate,
 }: BannerFormInputsProps) => {
   const [selectedReferenceImage, setSelectedReferenceImage] = React.useState('');
@@ -143,7 +132,7 @@ const BannerFormInputs = ({
   const getPartnerReferenceImages = () => {
     if (!selectedPartner?.product_photos_urls || selectedPartner.product_photos_urls.length === 0) {
       // Return default product photo options when no custom photos are available
-      return defaultFlavorReferences['foto-de-producto'] || [];
+      return defaultProductImages;
     }
     
     return selectedPartner.product_photos_urls.map((url, index) => ({
@@ -182,11 +171,11 @@ const BannerFormInputs = ({
             <h2 className="text-lg font-semibold text-gray-900">Información Básica</h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Partner Selection */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Partner Selection */}
             <div className="space-y-2">
               <Label htmlFor="partner" className="text-sm font-medium text-gray-700">Partner *</Label>
-          <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+              <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
                 <SelectTrigger className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200">
                   <SelectValue placeholder={partnersLoading ? "Cargando..." : "Selecciona un partner"} />
             </SelectTrigger>
@@ -235,22 +224,27 @@ const BannerFormInputs = ({
           </div>
 
           {/* Conditional Discount */}
-        {bannerType && bannerType.toLowerCase().includes('descuento') && (
-            <div className="max-w-xs">
-            <Label htmlFor="discount" className="text-sm font-medium text-gray-700">Porcentaje de Descuento *</Label>
-              <div className="relative mt-2">
+          {bannerType === 'promotion' && (
+            <div className="space-y-2">
+              <Label htmlFor="discount" className="text-sm font-medium text-gray-700">
+                Porcentaje de Descuento *
+              </Label>
+              <div className="relative">
             <Input
               id="discount"
               type="number"
-              min="1"
-              max="99"
+                  min="0"
+                  max="100"
               value={promotionDiscount}
               onChange={(e) => setPromotionDiscount(e.target.value)}
-                  placeholder="25"
-                  className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 pr-8"
+                  placeholder="ej. 20"
+                  className="border-orange-200 focus:border-orange-400 focus:ring-1 focus:ring-orange-200 pr-10"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <span className="text-orange-600 font-bold">%</span>
+                </div>
               </div>
+              <p className="text-xs text-gray-500">El descuento se mostrará prominentemente en el banner</p>
             </div>
           )}
         </div>
@@ -292,6 +286,29 @@ const BannerFormInputs = ({
             </div>
           </div>
 
+          {/* Discount Offer */}
+          <div className="space-y-2">
+            <Label htmlFor="discount" className="text-sm font-medium text-gray-700">
+              Porcentaje de Descuento
+            </Label>
+            <div className="relative">
+              <Input
+                id="discount"
+                type="number"
+                min="0"
+                max="100"
+                value={promotionDiscount}
+                onChange={(e) => setPromotionDiscount(e.target.value)}
+                placeholder="ej. 20"
+                className="border-orange-200 focus:border-orange-400 focus:ring-1 focus:ring-orange-200 pr-10"
+              />
+              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                <span className="text-orange-600 font-bold">%</span>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500">El descuento se mostrará prominentemente en el banner</p>
+          </div>
+
           {/* Custom Instructions */}
           <div className="space-y-2">
             <Label htmlFor="customPrompt" className="text-sm font-medium text-gray-700">
@@ -329,7 +346,7 @@ const BannerFormInputs = ({
                       ? 'border-violet-500 ring-2 ring-violet-200 shadow-lg' 
                       : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                   }`}
-                  onClick={() => setSelectedStyle(banner.id)}
+                  onClick={() => setSelectedStyle(selectedStyle === banner.id ? '' : banner.id)}
                 >
                   <div className="aspect-video overflow-hidden">
                     <img 
@@ -364,7 +381,7 @@ const BannerFormInputs = ({
                       ? 'border-violet-500 ring-2 ring-violet-200 shadow-lg' 
                       : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
                   }`}
-                  onClick={() => setSelectedFlavor(image.id)}
+                  onClick={() => setSelectedFlavor(selectedFlavor === image.id ? '' : image.id)}
                 >
                   <div className="aspect-video overflow-hidden">
                     <img 
@@ -389,36 +406,108 @@ const BannerFormInputs = ({
         )}
         
         {/* Generation Progress */}
-        {isGenerating && (
+        {(isGenerating || isFraming) && (
           <div className="p-4 bg-violet-50 rounded-xl border border-violet-200">
             <div className="flex items-center gap-3 mb-3">
               <Loader className="w-5 h-5 animate-spin text-violet-600" />
-              <span className="font-medium text-violet-900">Generando tu banner personalizado...</span>
+              <span className="font-medium text-violet-900">
+                {progressStatus || (isFraming ? 'Creando marco 4:1 con gradiente...' : `Generando tu banner con ${aiService.toUpperCase()}...`)}
+              </span>
             </div>
             <Progress value={progress} className="w-full h-3 mb-2" />
-            <p className="text-sm text-violet-700">Esto puede tomar unos segundos. ¡Tu banner estará listo pronto!</p>
+            <p className="text-sm text-violet-700">
+              {isFraming 
+                ? 'Extrayendo colores dominantes y aplicando gradiente de extensión para formato 4:1...' 
+                : (aiService === 'flux' 
+                ? 'Flux está procesando tu banner. Esto puede tomar hasta 1 minuto...' 
+                : 'Esto puede tomar unos segundos. ¡Tu banner estará listo pronto!'
+                )
+              }
+            </p>
           </div>
         )}
 
-        {/* Generate Button */}
+        {/* AI Service Toggle */}
         <div className="pt-4 border-t border-gray-100">
-        <Button
-          onClick={onGenerate}
-            disabled={isGenerating || !selectedPartnerId || !bannerType || !bannerCopy || !ctaCopy || !selectedStyle || !selectedFlavor}
+          <div className="mb-6">
+            <div className="text-center mb-4">
+              <Label className="text-lg font-semibold text-gray-900">Selecciona el Motor de IA</Label>
+              <p className="text-sm text-gray-600 mt-1">Elige qué servicio de inteligencia artificial usar para generar tu banner</p>
+            </div>
+            
+            <div className="flex items-center justify-center gap-4">
+              <div 
+                onClick={() => setAiService('openai')}
+                className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${
+                  aiService === 'openai' 
+                    ? 'border-green-500 bg-green-50 shadow-lg ring-2 ring-green-200' 
+                    : 'border-gray-200 bg-white hover:border-green-300'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-3 min-w-[140px]">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                      <div className="w-3 h-3 bg-green-500 rounded-full" />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-semibold text-gray-900">OpenAI GPT</h3>
+                    <p className="text-xs text-gray-600 mt-1">Rápido y confiable</p>
+                    <div className="mt-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                        Popular
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div 
+                onClick={() => setAiService('flux')}
+                className={`cursor-pointer p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md ${
+                  aiService === 'flux' 
+                    ? 'border-purple-500 bg-purple-50 shadow-lg ring-2 ring-purple-200' 
+                    : 'border-gray-200 bg-white hover:border-purple-300'
+                }`}
+              >
+                <div className="flex flex-col items-center gap-3 min-w-[140px]">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <div className="w-6 h-6 bg-white rounded-full flex items-center justify-center">
+                      <div className="w-3 h-3 bg-purple-500 rounded-full" />
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-semibold text-gray-900">Flux Kontext Pro</h3>
+                    <p className="text-xs text-gray-600 mt-1">Última generación</p>
+                    <div className="mt-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                        ⚡ Nuevo
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Generate Button */}
+          <Button
+            onClick={onGenerate}
+            disabled={isGenerating || !selectedPartnerId || !bannerType || !bannerCopy || !ctaCopy}
             className="w-full bg-gradient-to-r from-violet-600 to-brand-600 hover:from-violet-700 hover:to-brand-700 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 h-12"
-        >
-          {isGenerating ? (
-            <>
+          >
+            {isGenerating ? (
+              <>
                 <Loader className="w-5 h-5 mr-2 animate-spin" />
                 Generando Banner...
-            </>
-          ) : (
-            <>
+              </>
+            ) : (
+              <>
                 <Wand2 className="w-5 h-5 mr-2" />
-              Generar Banner con IA
-            </>
-          )}
-        </Button>
+                Generar Banner con IA
+              </>
+            )}
+          </Button>
         </div>
 
       </CardContent>

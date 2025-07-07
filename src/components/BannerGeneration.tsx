@@ -1,33 +1,19 @@
-import React, { useState } from 'react';
-import { Wand2, Download, ChevronLeft, ChevronRight, RefreshCw, Sparkles, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Wand2, Upload, AlertTriangle, Image as ImageIcon, CheckCircle2, X, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
-import BannerFormInputs from '@/components/BannerFormInputs';
-import { generateBannerImage, extractBrandColors, isOpenAIConfigured, getAPIKeyStatus, type BannerGenerationRequest, type GeneratedBanner } from '@/lib/openai';
-
-interface BannerOption {
-  id: string;
-  desktopUrl: string;
-  mobileUrl: string;
-  style: string;
-  copy: string;
-  bannerType: string;
-  flavor: string;
-  prompt?: string;
-}
-
-interface SavedBanner {
-  id: string;
-  partnerId: string;
-  partnerName: string;
-  selectedOption: BannerOption;
-  customCopy: string;
-  createdAt: string;
-}
+import { createEnhancedBanner, isEnhancedBannerCreationAvailable, BannerCreationRequest } from '@/lib/enhanced-banner-service';
+import { uploadProductPhoto, getPartnerProductPhotos, removeProductPhoto, ProductPhoto } from '@/lib/product-photos-service';
+import BannerEditor from '@/components/BannerEditor';
 
 interface BannerGenerationProps {
   preSelectedPartnerId?: string;
@@ -36,584 +22,738 @@ interface BannerGenerationProps {
 const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
   // Form state
   const [selectedPartnerId, setSelectedPartnerId] = useState(preSelectedPartnerId || '');
-  const [bannerType, setBannerType] = useState('');
-  const [promotionDiscount, setPromotionDiscount] = useState('');
-  const [bannerCopy, setBannerCopy] = useState('');
-  const [ctaCopy, setCtaCopy] = useState('');
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState('');
-  const [selectedFlavor, setSelectedFlavor] = useState('');
+  const [mainText, setMainText] = useState('');
+  const [descriptionText, setDescriptionText] = useState('');
+  const [ctaText, setCtaText] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('');
+  const [productImageFile, setProductImageFile] = useState<File | null>(null);
+  const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
+  const [selectedExistingPhotoUrl, setSelectedExistingPhotoUrl] = useState<string | null>(null);
+
+  // Product photos state
+  const [partnerProductPhotos, setPartnerProductPhotos] = useState<ProductPhoto[]>([]);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [showAddNewPhoto, setShowAddNewPhoto] = useState(false);
 
   // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [generatedOptions, setGeneratedOptions] = useState<BannerOption[]>([]);
-  const [currentOptionIndex, setCurrentOptionIndex] = useState(0);
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const [progressStatus, setProgressStatus] = useState<string>('');
   const [generationError, setGenerationError] = useState<string | null>(null);
-  const [lastGeneratedPrompt, setLastGeneratedPrompt] = useState<string>('');
   
-  // Layout state
-  const [savedBanners, setSavedBanners] = useState<SavedBanner[]>([]);
+  // Editor state
+  const [showEditor, setShowEditor] = useState(false);
+  const [editorBannerId, setEditorBannerId] = useState<string | null>(null);
 
   const { partners, isLoading: partnersLoading } = usePartners();
   const selectedPartner = partners.find(p => p.id === selectedPartnerId);
-  const currentOption = generatedOptions[currentOptionIndex];
 
-  // Check if OpenAI API key is configured
-  const openAIConfigured = isOpenAIConfigured();
-  const apiKeyStatus = getAPIKeyStatus();
+  // Check if enhanced banner creation is available
+  const enhancedBannerAvailable = isEnhancedBannerCreationAvailable();
 
-  const generateBannerOptions = async () => {
-    if (!selectedPartnerId || !bannerType || !bannerCopy || !ctaCopy || !selectedStyle || !selectedFlavor) {
+  // Load product photos when partner is selected
+  useEffect(() => {
+    const loadPartnerPhotos = async () => {
+      if (selectedPartnerId) {
+        setIsLoadingPhotos(true);
+        try {
+          const photos = await getPartnerProductPhotos(selectedPartnerId);
+          setPartnerProductPhotos(photos);
+          console.log('Loaded partner product photos:', photos);
+        } catch (error) {
+          console.error('Error loading partner photos:', error);
+        } finally {
+          setIsLoadingPhotos(false);
+        }
+      } else {
+        setPartnerProductPhotos([]);
+        setSelectedExistingPhotoUrl(null);
+      }
+    };
+
+    loadPartnerPhotos();
+  }, [selectedPartnerId]);
+
+  // Handle product image selection
+  const handleProductImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setProductImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProductImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove product image
+  const removeProductImage = () => {
+    setProductImageFile(null);
+    setProductImagePreview(null);
+    setSelectedExistingPhotoUrl(null);
+  };
+
+  // Handle selecting an existing product photo
+  const handleSelectExistingPhoto = (photoUrl: string) => {
+    setSelectedExistingPhotoUrl(photoUrl);
+    setProductImageFile(null);
+    setProductImagePreview(null);
+    setShowAddNewPhoto(false);
+  };
+
+  // Handle uploading a new product photo
+  const handleUploadNewPhoto = async (file: File) => {
+    if (!selectedPartnerId) return;
+
+    setIsUploadingPhoto(true);
+    setUploadProgress(0);
+
+    try {
+      const photoUrl = await uploadProductPhoto(selectedPartnerId, file, (progress) => {
+        setUploadProgress(progress);
+      });
+
+      if (photoUrl) {
+        // Refresh the partner photos list
+        const updatedPhotos = await getPartnerProductPhotos(selectedPartnerId);
+        setPartnerProductPhotos(updatedPhotos);
+        
+        // Select the newly uploaded photo
+        setSelectedExistingPhotoUrl(photoUrl);
+        setProductImageFile(null);
+        setProductImagePreview(null);
+        setShowAddNewPhoto(false);
+
+        toast({
+          title: "Foto subida exitosamente",
+          description: "La foto del producto ha sido agregada a la colección del partner",
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+    } finally {
+      setIsUploadingPhoto(false);
+      setUploadProgress(0);
+    }
+  };
+
+  // Handle removing a product photo
+  const handleRemovePhoto = async (photoUrl: string) => {
+    if (!selectedPartnerId) return;
+
+    try {
+      const success = await removeProductPhoto(selectedPartnerId, photoUrl);
+      if (success) {
+        // Refresh the partner photos list
+        const updatedPhotos = await getPartnerProductPhotos(selectedPartnerId);
+        setPartnerProductPhotos(updatedPhotos);
+        
+        // Clear selection if removed photo was selected
+        if (selectedExistingPhotoUrl === photoUrl) {
+          setSelectedExistingPhotoUrl(null);
+        }
+
+        toast({
+          title: "Foto eliminada",
+          description: "La foto del producto ha sido eliminada de la colección",
+        });
+      }
+    } catch (error) {
+      console.error('Error removing photo:', error);
+    }
+  };
+
+  // Handle drag and drop
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+  };
+
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const file = event.dataTransfer.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setProductImageFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setProductImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Validate form
+  const validateForm = (): boolean => {
+    if (!selectedPartnerId) {
       toast({
-        title: "Información faltante",
-        description: "Por favor completa todos los campos requeridos",
+        title: "Partner requerido",
+        description: "Por favor selecciona un partner",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!productImageFile && !selectedExistingPhotoUrl) {
+      toast({
+        title: "Foto de producto requerida",
+        description: "Por favor selecciona una foto del producto o sube una nueva",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!mainText.trim()) {
+      toast({
+        title: "Título principal requerido",
+        description: "Por favor ingresa el título principal del banner",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!descriptionText.trim()) {
+      toast({
+        title: "Descripción requerida",
+        description: "Por favor ingresa una descripción del banner",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (!ctaText.trim()) {
+      toast({
+        title: "CTA requerido",
+        description: "Por favor ingresa el texto del call-to-action",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Generate banner with enhanced workflow
+  const generateBanner = async () => {
+    if (!validateForm()) return;
+
+    if (!enhancedBannerAvailable) {
+      toast({
+        title: "Configuración incompleta",
+        description: "Se requiere configurar las API keys de OpenAI y Flux para usar esta funcionalidad",
         variant: "destructive"
       });
       return;
     }
-
-    if (bannerType === 'promotion' && !promotionDiscount) {
-      toast({
-        title: "Descuento faltante",
-        description: "Por favor ingresa el porcentaje de descuento de la promoción",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (!openAIConfigured) {
-      console.log('API Key Status:', apiKeyStatus);
-      toast({
-        title: "Configuración faltante",
-        description: apiKeyStatus.placeholder 
-          ? "Reemplaza 'your_openai_api_key_here' con tu API key real de OpenAI"
-          : "OpenAI API key no está configurada. Agrega tu API key al archivo .env.local",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    console.log('Starting banner generation with OpenAI API key:', apiKeyStatus.keyPreview);
 
     setIsGenerating(true);
     setProgress(0);
+    setProgressStatus('');
     setGenerationError(null);
 
-    // Simulate progress updates
-    const progressInterval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 90) {
-          clearInterval(progressInterval);
-          return 90;
-        }
-        return prev + Math.random() * 15;
-      });
-    }, 500);
-
     try {
-      // Extract brand colors from partner URL
-      let brandColors = {};
-      if (selectedPartner?.partner_url) {
-        try {
-          brandColors = await extractBrandColors(selectedPartner.partner_url);
-        } catch (error) {
-          console.warn('Failed to extract brand colors, using defaults');
-        }
-      }
-
-      // Prepare reference images
-      const referenceImages: string[] = [];
+      // Determine the product image source
+      let finalProductImageFile: File;
       
-      // Add partner logo
-      if (selectedPartner?.logo_url) {
-        referenceImages.push(selectedPartner.logo_url);
-        console.log('Added partner logo:', selectedPartner.logo_url);
-      }
-      
-      // Add reference banners based on selected style
-      if (selectedStyle) {
-        // If style is a partner banner ID
-        if (selectedStyle.startsWith('partner-banner-') && selectedPartner?.reference_banners_urls) {
-          const bannerIndex = parseInt(selectedStyle.replace('partner-banner-', ''));
-          if (selectedPartner.reference_banners_urls[bannerIndex]) {
-            referenceImages.push(selectedPartner.reference_banners_urls[bannerIndex]);
-            console.log('Added selected partner banner:', selectedPartner.reference_banners_urls[bannerIndex]);
-          }
-        }
-        // If style is a default style, add all partner reference banners
-        else if (selectedPartner?.reference_banners_urls && selectedPartner.reference_banners_urls.length > 0) {
-          referenceImages.push(...selectedPartner.reference_banners_urls.slice(0, 2));
-          console.log('Added partner reference banners:', selectedPartner.reference_banners_urls.slice(0, 2));
-        }
-      }
-      
-      // Add product photos based on flavor selection
-      if (selectedFlavor) {
-        // If flavor is a partner product photo ID
-        if (selectedFlavor.startsWith('partner-image-') && selectedPartner?.product_photos_urls) {
-          const imageIndex = parseInt(selectedFlavor.replace('partner-image-', ''));
-          if (selectedPartner.product_photos_urls[imageIndex]) {
-            referenceImages.push(selectedPartner.product_photos_urls[imageIndex]);
-            console.log('Added selected partner product photo:', selectedPartner.product_photos_urls[imageIndex]);
-          }
-        }
-        // If flavor contains 'product' and we have partner product photos, add them
-        else if (selectedFlavor.includes('product') && selectedPartner?.product_photos_urls && selectedPartner.product_photos_urls.length > 0) {
-          referenceImages.push(...selectedPartner.product_photos_urls.slice(0, 2));
-          console.log('Added partner product photos:', selectedPartner.product_photos_urls.slice(0, 2));
-        }
-      }
-
-      console.log('Total reference images collected:', referenceImages.length, referenceImages);
-
-      // Prepare benefits list
-      const benefits = selectedPartner?.benefits_description 
-        ? selectedPartner.benefits_description.split('; ').filter(b => b.trim())
-        : [];
-
-      // Create generation request with enhanced context
-      const generationRequest: BannerGenerationRequest = {
-        partnerName: selectedPartner?.name || '',
-        partnerUrl: selectedPartner?.partner_url,
-        benefits,
-        promotionalText: bannerCopy,
-        ctaText: ctaCopy,
-        customPrompt: customPrompt,
-        promotionDiscount: bannerType === 'promotion' ? promotionDiscount : undefined, // Include discount only for promotion banners
-        brandColors,
-        referenceImages,
-        style: selectedStyle,
-        aspectRatio: '3:2',
-        // Enhanced context for comprehensive prompt generation
-        partnerDescription: selectedPartner?.description,
-        selectedBenefit: bannerType, // This is the selected benefit from the form
-        hasLogo: !!selectedPartner?.logo_url,
-        hasReferenceBanners: !!(selectedPartner?.reference_banners_urls && selectedPartner.reference_banners_urls.length > 0),
-        hasProductPhotos: !!(selectedPartner?.product_photos_urls && selectedPartner.product_photos_urls.length > 0),
-        referenceImageCount: referenceImages.length
-      };
-
-      console.log('Generating banner with request:', generationRequest);
-
-      // Generate banner using OpenAI
-      const result = await generateBannerImage(generationRequest);
-
-      // Create banner option from result
-      const bannerOption: BannerOption = {
-        id: Date.now().toString(),
-        desktopUrl: result.imageUrl,
-        mobileUrl: result.imageUrl, // Same image for both, could be resized differently in future
-        style: selectedStyle,
-        copy: bannerCopy,
-        bannerType: bannerType,
-        flavor: selectedFlavor,
-        prompt: result.prompt
-      };
-
-      setGeneratedOptions([bannerOption]);
-      setCurrentOptionIndex(0);
-      setHasGenerated(true);
-      setProgress(100);
-      setLastGeneratedPrompt(result.prompt || '');
-
-      // Automatically save the banner
-      const newBanner: SavedBanner = {
-        id: bannerOption.id,
-        partnerId: selectedPartner.id,
-        partnerName: selectedPartner.name,
-        selectedOption: bannerOption,
-        customCopy: bannerCopy,
-        createdAt: new Date().toISOString()
-      };
-
-      // Save to localStorage
-      try {
-        const existingSaved = localStorage.getItem('savedBanners');
-        const savedBannersArray = existingSaved ? JSON.parse(existingSaved) : [];
-        const updatedBanners = [newBanner, ...savedBannersArray];
-        localStorage.setItem('savedBanners', JSON.stringify(updatedBanners));
-        setSavedBanners(prev => [newBanner, ...prev]);
+      if (productImageFile) {
+        // Use the uploaded file directly
+        finalProductImageFile = productImageFile;
+        console.log('Using uploaded file:', finalProductImageFile.name, finalProductImageFile.type);
+      } else if (selectedExistingPhotoUrl) {
+        setProgress(12);
+        setProgressStatus('Preparando imagen del producto...');
         
-        // Dispatch custom event to notify other components
-        window.dispatchEvent(new Event('bannerSaved'));
-      } catch (error) {
-        console.error('Failed to auto-save banner to localStorage:', error);
+        try {
+          // Convert existing photo URL to File object with better error handling
+          console.log('Fetching existing photo:', selectedExistingPhotoUrl);
+          
+          const response = await fetch(selectedExistingPhotoUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'image/*',
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          console.log('Fetched blob:', blob.type, blob.size);
+          
+          // Validate blob
+          if (!blob.type.startsWith('image/')) {
+            throw new Error(`Invalid image type: ${blob.type}`);
+          }
+          
+          if (blob.size === 0) {
+            throw new Error('Empty image file');
+          }
+          
+          if (blob.size > 10 * 1024 * 1024) { // 10MB limit
+            throw new Error('Image file too large (max 10MB)');
+          }
+          
+          // Create file with proper type
+          const fileName = selectedExistingPhotoUrl.split('/').pop()?.split('?')[0] || 'product-photo.jpg';
+          const fileType = blob.type || 'image/jpeg';
+          
+          finalProductImageFile = new File([blob], fileName, { 
+            type: fileType,
+            lastModified: Date.now()
+          });
+          
+          console.log('Created file object:', finalProductImageFile.name, finalProductImageFile.type, finalProductImageFile.size);
+          
+        } catch (fetchError) {
+          console.error('Error processing existing photo:', fetchError);
+          throw new Error(`No se pudo procesar la foto seleccionada: ${fetchError}`);
+        }
+      } else {
+        throw new Error('No product image selected');
       }
 
-      toast({
-        title: "¡Banner generado y guardado!",
-        description: `Banner para ${selectedPartner?.name} creado y guardado automáticamente`,
-      });
+      const request: BannerCreationRequest = {
+        partnerId: selectedPartnerId,
+        partnerName: selectedPartner?.name || '',
+        productImageFile: finalProductImageFile,
+        mainText,
+        descriptionText,
+        ctaText,
+        discountPercentage: discountPercentage ? parseInt(discountPercentage) : undefined,
+        styleAnalysis: selectedPartner?.reference_style_analysis
+      };
+
+      console.log('Starting enhanced banner creation...');
+      const result = await createEnhancedBanner(request, (progress, status) => {
+          setProgress(progress);
+          setProgressStatus(status);
+        });
+
+      console.log('Banner created successfully:', result);
+      
+      // Open editor with the generated banner
+      setEditorBannerId(result.bannerId);
+        setShowEditor(true);
+        
+      // Reset form
+      resetForm();
 
     } catch (error) {
-      console.error('Banner generation failed:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      setGenerationError(errorMessage);
-      
-      toast({
-        title: "Error al generar banner",
-        description: errorMessage,
-        variant: "destructive"
-      });
+      console.error('Error generating banner:', error);
+      setGenerationError(error instanceof Error ? error.message : 'Error desconocido');
     } finally {
       setIsGenerating(false);
-      clearInterval(progressInterval);
-      setTimeout(() => setProgress(0), 2000); // Reset progress after delay
     }
   };
 
-  const downloadBanner = (size: 'desktop' | 'mobile') => {
-    if (!currentOption) return;
-    
-    const url = size === 'desktop' ? currentOption.desktopUrl : currentOption.mobileUrl;
-    const dimensions = size === 'desktop' ? '1536x1024' : '1536x1024'; // 3:2 landscape format
-    
-    // Create download link
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${selectedPartner?.name || 'banner'}-${size}-${Date.now()}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: "Descarga iniciada",
-      description: `Descargando banner ${size === 'desktop' ? 'escritorio' : 'móvil'} (${dimensions}px)`,
-    });
-  };
-
-  const saveBanner = () => {
-    if (!currentOption || !selectedPartner) return;
-
-    const newBanner: SavedBanner = {
-      id: Date.now().toString(),
-      partnerId: selectedPartner.id,
-      partnerName: selectedPartner.name,
-      selectedOption: currentOption,
-      customCopy: bannerCopy,
-      createdAt: new Date().toISOString()
-    };
-
-    // Save to localStorage
-    try {
-      const existingSaved = localStorage.getItem('savedBanners');
-      const savedBannersArray = existingSaved ? JSON.parse(existingSaved) : [];
-      const updatedBanners = [newBanner, ...savedBannersArray];
-      localStorage.setItem('savedBanners', JSON.stringify(updatedBanners));
-      
-      // Dispatch custom event to notify other components
-      window.dispatchEvent(new Event('bannerSaved'));
-    } catch (error) {
-      console.error('Failed to save banner to localStorage:', error);
-    }
-
-    setSavedBanners(prev => [newBanner, ...prev]);
-
-    toast({
-      title: "¡Banner guardado!",
-      description: `Banner para ${selectedPartner.name} ha sido guardado en tus proyectos`,
-    });
-  };
-
+  // Reset form
   const resetForm = () => {
-    setSelectedPartnerId('');
-    setBannerType('');
-    setPromotionDiscount('');
-    setBannerCopy('');
-    setCtaCopy('');
-    setCustomPrompt('');
-    setSelectedStyle('');
-    setSelectedFlavor('');
-    setGeneratedOptions([]);
-    setHasGenerated(false);
-    setCurrentOptionIndex(0);
+    setSelectedPartnerId(preSelectedPartnerId || '');
+    setMainText('');
+    setDescriptionText('');
+    setCtaText('');
+    setDiscountPercentage('');
+    setProductImageFile(null);
+    setProductImagePreview(null);
+    setSelectedExistingPhotoUrl(null);
+    setShowAddNewPhoto(false);
+    setProgress(0);
+    setProgressStatus('');
     setGenerationError(null);
-    setLastGeneratedPrompt('');
   };
+
+  // Close editor
+  const closeEditor = () => {
+    setShowEditor(false);
+    setEditorBannerId(null);
+  };
+
+     if (showEditor && editorBannerId) {
+    return (
+      <BannerEditor
+                 backgroundImageUrl=""
+        partnerId={selectedPartnerId}
+        partnerName={selectedPartner?.name || ''}
+        partnerLogoUrl={selectedPartner?.logo_url}
+        bannerText={mainText}
+        descriptionText={descriptionText}
+        ctaText={ctaText}
+        bannerId={editorBannerId}
+        onExit={closeEditor}
+      />
+    );
+  }
 
   return (
-    <div className="h-[calc(100vh-8rem)] flex gap-6 bg-gray-50">
-      {/* API Configuration Warning */}
-      {!openAIConfigured && (
-        <div className="fixed top-4 right-4 z-50 max-w-md">
-          <Alert variant="destructive">
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wand2 className="h-5 w-5" />
+            Crear Banner Personalizado
+          </CardTitle>
+          <CardDescription>
+            Crea banners personalizados con análisis automático del producto y estilo de marca
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* API Configuration Alert */}
+          {!enhancedBannerAvailable && (
+            <Alert>
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Configuración requerida</AlertTitle>
+              <AlertTitle>Configuración requerida</AlertTitle>
             <AlertDescription>
-              {apiKeyStatus.placeholder ? (
-                <>
-                  Reemplaza el placeholder en .env.local con tu API key real:
-                  <br />
-                  <code className="text-xs bg-red-100 px-1 py-0.5 rounded mt-1 block">
-                    VITE_OPENAI_API_KEY=sk-tu_api_key_real_aqui
-                  </code>
-                </>
-              ) : (
-                <>
-                  Para usar la generación de banners AI, agrega tu OpenAI API key en el archivo .env.local:
-                  <br />
-                  <code className="text-xs bg-red-100 px-1 py-0.5 rounded mt-1 block">
-                    VITE_OPENAI_API_KEY=sk-tu_api_key_aqui
-                  </code>
-                </>
-              )}
+                Para usar esta funcionalidad, necesitas configurar las API keys de OpenAI y Flux en tu archivo .env.local
             </AlertDescription>
           </Alert>
-        </div>
-      )}
+          )}
 
-      {/* Debug Info for Development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 left-4 z-50 max-w-md">
-          <Alert>
-            <AlertTitle>Debug Info</AlertTitle>
-            <AlertDescription className="text-xs max-h-40 overflow-y-auto">
-              API Key: {apiKeyStatus.configured ? (apiKeyStatus.placeholder ? '❌ Placeholder' : '✅ Configured') : '❌ Missing'}
-              <br />
-              Preview: {apiKeyStatus.keyPreview || 'N/A'}
-              {selectedPartner && (
-                <>
-                  <br />
-                  Partner: {selectedPartner.name}
-                  <br />
-                  Logo: {selectedPartner.logo_url ? '✅' : '❌'}
-                  <br />
-                  Ref Banners: {selectedPartner.reference_banners_urls?.length || 0}
-                  <br />
-                  Product Photos: {selectedPartner.product_photos_urls?.length || 0}
-                  <br />
-                  Style: {selectedStyle || 'None'}
-                  <br />
-                  Flavor: {selectedFlavor || 'None'}
-                  <br />
-                  Custom Prompt: {customPrompt ? '✅' : '❌'}
-                </>
+          {/* Partner Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="partner-select">Partner</Label>
+            <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un partner" />
+              </SelectTrigger>
+              <SelectContent>
+                {partners.map((partner) => (
+                  <SelectItem key={partner.id} value={partner.id}>
+                    <div className="flex items-center gap-2">
+                      {partner.logo_url && (
+                        <img 
+                          src={partner.logo_url} 
+                          alt={partner.name}
+                          className="w-6 h-6 object-contain"
+                        />
+                      )}
+                      <span>{partner.name}</span>
+                      {partner.reference_style_analysis && (
+                        <Badge variant="secondary" className="ml-2">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Estilo analizado
+                        </Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Product Image Selection */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="product-image">Foto de producto</Label>
+              {selectedPartnerId && partnerProductPhotos.length > 0 && (
+                <Badge variant="secondary" className="text-xs">
+                  {partnerProductPhotos.length} fotos disponibles
+                </Badge>
               )}
-              {hasGenerated && currentOption && (
-                <details className="mt-2">
-                  <summary className="cursor-pointer text-blue-600 hover:text-blue-800">
-                    View Generated Prompt
-                  </summary>
-                  <div className="mt-1 p-2 bg-gray-100 rounded text-xs max-h-32 overflow-y-auto whitespace-pre-wrap">
-                    {/* Show the prompt that was used for generation */}
-                    {lastGeneratedPrompt}
-                  </div>
-                </details>
-              )}
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
+            </div>
 
-      {/* Generation Error Alert */}
-      {generationError && (
-        <div className="fixed top-20 right-4 z-50 max-w-md">
-          <Alert variant="destructive">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error de generación</AlertTitle>
-            <AlertDescription>{generationError}</AlertDescription>
-          </Alert>
-        </div>
-      )}
+            {/* Show existing partner photos */}
+            {selectedPartnerId && (
+              <div className="space-y-4">
+                {isLoadingPhotos ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-500">Cargando fotos del partner...</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Existing Photos Grid */}
+                    {partnerProductPhotos.length > 0 && (
+                      <div>
+                        <p className="text-sm text-gray-600 mb-3">Fotos existentes del partner:</p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {partnerProductPhotos.map((photo) => (
+                            <div key={photo.id} className="relative group">
+                              <div 
+                                className={`border-2 rounded-lg p-2 cursor-pointer transition-all ${
+                                  selectedExistingPhotoUrl === photo.url 
+                                    ? 'border-blue-500 bg-blue-50' 
+                                    : 'border-gray-200 hover:border-gray-300'
+                                }`}
+                                onClick={() => handleSelectExistingPhoto(photo.url)}
+                              >
+                                <img
+                                  src={photo.url}
+                                  alt={photo.fileName}
+                                  className="w-full h-24 object-cover rounded"
+                                />
+                                {selectedExistingPhotoUrl === photo.url && (
+                                  <div className="absolute top-1 right-1">
+                                    <CheckCircle2 className="h-5 w-5 text-blue-600 bg-white rounded-full" />
+                                  </div>
+                                )}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemovePhoto(photo.url);
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-      {/* Left Column - Configuration (when generated) or Full Form (when not generated) */}
-      <div className={`transition-all duration-300 ${hasGenerated ? 'w-80' : 'w-full'} flex-shrink-0`}>
-        {hasGenerated ? (
-          <div className="space-y-4 h-full overflow-y-auto">
-            {/* Banner Configuration - Made smaller */}
-            <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
-                      <Sparkles className="w-3 h-3 text-white" />
-                    </div>
-                    <CardTitle className="text-sm font-semibold text-gray-700">Configuración</CardTitle>
+                    {/* Add New Photo Section */}
+                    <div className="border-t pt-4">
+                      {!showAddNewPhoto ? (
+                    <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setShowAddNewPhoto(true)}
+                          className="w-full"
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Agregar nueva foto de producto
+                    </Button>
+                      ) : (
+                        <div className="space-y-4">
+                          {/* Upload Progress */}
+                          {isUploadingPhoto && (
+                            <div className="space-y-2">
+                              <Progress value={uploadProgress} className="w-full" />
+                              <p className="text-sm text-center text-gray-600">
+                                Subiendo foto... {uploadProgress}%
+                              </p>
                   </div>
-                  <Button variant="outline" size="sm" onClick={resetForm} className="rounded-lg border-gray-200 hover:bg-gray-50 text-xs">
-                    <RefreshCw className="w-3 h-3 mr-1" />
-                    Nuevo
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-3 space-y-3 text-xs">
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <span className="font-semibold text-gray-600">Socio</span>
-                      <p className="text-gray-800 font-medium">{selectedPartner?.name}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="font-semibold text-gray-600">Beneficio</span>
-                      <p className="text-gray-800 font-medium">{bannerType}</p>
-                    </div>
-                    <div className="space-y-1">
-                      <span className="font-semibold text-gray-600">Estilo</span>
-                      <p className="text-gray-800 font-medium">{selectedStyle}</p>
-                    </div>
+                          )}
+
+                          {/* New Photo Upload Area */}
+                          {!productImageFile ? (
+                            <div 
+                              className="border-2 border-dashed border-blue-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all duration-200"
+                              onDragOver={handleDragOver}
+                              onDrop={handleDrop}
+                              onClick={() => document.getElementById('file-input')?.click()}
+                            >
+                              <div className="bg-blue-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+                                <Upload className="h-6 w-6 text-blue-600" />
+                              </div>
+                              <p className="text-sm font-semibold mb-2 text-gray-700">Agregar nueva foto</p>
+                              <p className="text-xs text-gray-500 mb-4">
+                                Arrastra y suelta una imagen aquí o haz clic para seleccionar
+                              </p>
+                              <div className="text-xs text-gray-400">
+                                PNG, JPG hasta 10MB
                   </div>
-                  <div className="border-t border-gray-200 pt-3">
-                    <span className="font-semibold text-gray-600">Texto del Banner</span>
-                    <p className="text-gray-800 font-medium mt-1">"{bannerCopy}"</p>
+                              <input
+                                id="file-input"
+                                type="file"
+                                accept="image/*"
+                                onChange={handleProductImageChange}
+                                className="hidden"
+                    />
                   </div>
-                  <div className="border-t border-gray-200 pt-3">
-                    <span className="font-semibold text-gray-600">CTA</span>
-                    <p className="text-gray-800 font-medium mt-1">"{ctaCopy}"</p>
+                          ) : (
+                            <div className="space-y-4">
+                              {/* Preview Section */}
+                              <div className="bg-gray-50 rounded-lg p-4">
+                                <p className="text-sm font-medium text-gray-700 mb-3">Vista previa:</p>
+                                <div className="relative inline-block">
+                                  <img
+                                    src={productImagePreview!}
+                                    alt="Vista previa de nueva foto"
+                                    className="max-w-full h-32 object-contain rounded-lg border border-gray-200"
+                                  />
+                    <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setProductImageFile(null);
+                                      setProductImagePreview(null);
+                                    }}
+                                    className="absolute -top-2 -right-2 h-6 w-6 p-0 rounded-full bg-white border-2 border-gray-300 hover:border-red-300 hover:bg-red-50"
+                                  >
+                                    <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                  {customPrompt && (
-                    <div className="border-t border-gray-200 pt-3">
-                      <span className="font-semibold text-gray-600">Instrucciones Adicionales</span>
-                      <p className="text-gray-800 font-medium mt-1">"{customPrompt}"</p>
+                              </div>
+
+                              {/* Action Buttons */}
+                              <div className="flex gap-3">
+                                <Button
+                                  type="button"
+                                  onClick={() => handleUploadNewPhoto(productImageFile)}
+                                  disabled={isUploadingPhoto}
+                                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                >
+                                  {isUploadingPhoto ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                      Subiendo...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Upload className="h-4 w-4 mr-2" />
+                                      Subir y usar esta foto
+                                    </>
+                                  )}
+                                </Button>
+                <Button
+                                  type="button"
+                  variant="outline"
+                                  onClick={() => {
+                                    setProductImageFile(null);
+                                    setProductImagePreview(null);
+                                  }}
+                                  disabled={isUploadingPhoto}
+                                  className="px-4"
+                                >
+                                  Cambiar
+                </Button>
+              </div>
+                    </div>
+                          )}
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setShowAddNewPhoto(false)}
+                            className="w-full mt-3 text-gray-600 hover:text-gray-800"
+                          >
+                            Cancelar
+                          </Button>
+                      </div>
+                    )}
+                    </div>
+                  </>
+                )}
+                    </div>
+            )}
+
+            {/* No partner selected message */}
+            {!selectedPartnerId && (
+              <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center">
+                <ImageIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                <p className="text-gray-500 mb-2">Selecciona un partner primero</p>
+                <p className="text-sm text-gray-400">
+                  Las fotos de productos se cargarán automáticamente
+                </p>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        ) : (
-          <div className="h-full">
-          <BannerFormInputs
-            selectedPartnerId={selectedPartnerId}
-            setSelectedPartnerId={setSelectedPartnerId}
-            bannerType={bannerType}
-            setBannerType={setBannerType}
-            promotionDiscount={promotionDiscount}
-            setPromotionDiscount={setPromotionDiscount}
-            bannerCopy={bannerCopy}
-            setBannerCopy={setBannerCopy}
-            ctaCopy={ctaCopy}
-            setCtaCopy={setCtaCopy}
-              customPrompt={customPrompt}
-              setCustomPrompt={setCustomPrompt}
-            selectedStyle={selectedStyle}
-            setSelectedStyle={setSelectedStyle}
-            selectedFlavor={selectedFlavor}
-            setSelectedFlavor={setSelectedFlavor}
-            partners={partners}
-            partnersLoading={partnersLoading}
-            selectedPartner={selectedPartner}
-            isGenerating={isGenerating}
-            progress={progress}
-            onGenerate={generateBannerOptions}
-          />
-          </div>
-        )}
-      </div>
 
-      {/* Right Column - Generated Banners (only when generated) */}
-      {hasGenerated && (
-        <div className="flex-1 flex flex-col gap-6 min-w-0">
-          {/* Banner Preview with Tabs */}
-          <Card className="bg-white/80 backdrop-blur-sm shadow-lg border-0 rounded-2xl flex-1">
-            <CardHeader className="pb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-                    <Wand2 className="w-4 h-4 text-white" />
-                  </div>
-                  <CardTitle className="text-lg font-semibold text-gray-700">Banner Generado con AI</CardTitle>
+            {/* Selection indicator */}
+            {(selectedExistingPhotoUrl || productImageFile) && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <div className="flex items-center">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mr-2" />
+                  <span className="text-sm text-green-800">
+                    Foto de producto seleccionada: {
+                      productImageFile ? 'Nueva foto (pendiente de subir)' : 'Foto existente'
+                    }
+                  </span>
                 </div>
-                {generatedOptions.length > 1 && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentOptionIndex(Math.max(0, currentOptionIndex - 1))}
-                      disabled={currentOptionIndex === 0}
-                      className="rounded-lg"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm font-medium px-3 text-gray-600">
-                      {currentOptionIndex + 1} de {generatedOptions.length}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentOptionIndex(Math.min(generatedOptions.length - 1, currentOptionIndex + 1))}
-                      disabled={currentOptionIndex === generatedOptions.length - 1}
-                      className="rounded-lg"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6 p-6 pt-0 flex-1">
-              <Tabs defaultValue="desktop" className="w-full h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-2 mb-6">
-                  <TabsTrigger value="desktop" className="text-gray-600">Escritorio</TabsTrigger>
-                  <TabsTrigger value="mobile" className="text-gray-600">Móvil</TabsTrigger>
-                </TabsList>
-                
-                <div className="flex-1 flex flex-col">
-                  <TabsContent value="desktop" className="flex-1 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-gray-600">Versión Escritorio</h4>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">1536×1024px (3:2)</span>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 flex-1 flex items-center justify-center">
-                      <img
-                        src={currentOption?.desktopUrl}
-                        alt="Banner Escritorio"
-                        className="w-full rounded-lg border border-gray-200 shadow-sm max-h-full object-contain"
-                      />
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="mobile" className="flex-1 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-semibold text-gray-600">Versión Móvil</h4>
-                      <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">1536×1024px (3:2)</span>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-6 border border-gray-200 flex-1 flex items-center justify-center">
-                      <img
-                        src={currentOption?.mobileUrl}
-                        alt="Banner Móvil"
-                        className="w-full max-w-sm rounded-lg border border-gray-200 shadow-sm max-h-full object-contain"
-                      />
-                    </div>
-                  </TabsContent>
-                </div>
-              </Tabs>
+            )}
+          </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-4 border-t border-gray-200">
-                <Button
-                  onClick={() => downloadBanner('desktop')}
-                  className="bg-blue-600 hover:bg-blue-700 rounded-xl flex-1"
-                  size="lg"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar Escritorio
-                </Button>
-                <Button
-                  onClick={() => downloadBanner('mobile')}
-                  className="bg-green-600 hover:bg-green-700 rounded-xl flex-1"
-                  size="lg"
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Descargar Móvil
-                </Button>
-                <Button
-                  onClick={() => toast({
-                    title: "Banner ya guardado",
-                    description: "Este banner se guardó automáticamente al generarse",
-                  })}
-                  className="bg-green-600 hover:bg-green-700 rounded-xl"
-                  size="lg"
-                  disabled={true}
-                >
-                  ✓ Guardado
-                </Button>
-              </div>
+          {/* Main Text */}
+          <div className="space-y-2">
+            <Label htmlFor="main-text">Título principal</Label>
+            <Textarea
+              id="main-text"
+              value={mainText}
+              onChange={(e) => setMainText(e.target.value)}
+              placeholder="Ingresa el título principal del banner"
+              rows={2}
+            />
+          </div>
+
+          {/* Description Text */}
+          <div className="space-y-2">
+            <Label htmlFor="description-text">Descripción</Label>
+            <Textarea
+              id="description-text"
+              value={descriptionText}
+              onChange={(e) => setDescriptionText(e.target.value)}
+              placeholder="Ingresa una descripción más detallada"
+              rows={2}
+            />
+          </div>
+
+          {/* CTA Text */}
+          <div className="space-y-2">
+            <Label htmlFor="cta-text">Call-to-Action (CTA)</Label>
+            <Input
+              id="cta-text"
+              value={ctaText}
+              onChange={(e) => setCtaText(e.target.value)}
+              placeholder="Ej: Comprar ahora, Ver más, Solicitar info"
+            />
+          </div>
+
+          {/* Discount Percentage */}
+          <div className="space-y-2">
+            <Label htmlFor="discount">Porcentaje de descuento (opcional)</Label>
+            <Input
+              id="discount"
+              type="number"
+              value={discountPercentage}
+              onChange={(e) => setDiscountPercentage(e.target.value)}
+              placeholder="Ej: 25"
+              min="0"
+              max="100"
+            />
+          </div>
+
+          {/* Generation Progress */}
+          {isGenerating && (
+            <div className="space-y-4">
+              <Progress value={progress} className="w-full" />
+              <p className="text-sm text-gray-600 text-center">
+                {progressStatus || 'Generando banner...'}
+              </p>
+            </div>
+          )}
+
+          {/* Generation Error */}
+          {generationError && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Error en la generación</AlertTitle>
+              <AlertDescription>{generationError}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Generate Button */}
+          <Button
+            onClick={generateBanner}
+            disabled={isGenerating || !enhancedBannerAvailable}
+            className="w-full"
+            size="lg"
+          >
+            {isGenerating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                Generando banner...
+              </>
+            ) : (
+              <>
+                <Wand2 className="h-4 w-4 mr-2" />
+                Generar Banner
+              </>
+            )}
+          </Button>
             </CardContent>
           </Card>
-        </div>
-      )}
     </div>
   );
 };

@@ -9,6 +9,59 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      banners: {
+        Row: {
+          banner_title: string | null
+          created_at: string
+          id: string
+          image_type: string
+          image_url: string
+          partner_id: string
+          prompt_used: string | null
+          product_description: string | null
+          main_text: string | null
+          description_text: string | null
+          cta_text: string | null
+          discount_percentage: number | null
+        }
+        Insert: {
+          banner_title?: string | null
+          created_at?: string
+          id?: string
+          image_type: string
+          image_url: string
+          partner_id: string
+          prompt_used?: string | null
+          product_description?: string | null
+          main_text?: string | null
+          description_text?: string | null
+          cta_text?: string | null
+          discount_percentage?: number | null
+        }
+        Update: {
+          banner_title?: string | null
+          created_at?: string
+          id?: string
+          image_type?: string
+          image_url?: string
+          partner_id?: string
+          prompt_used?: string | null
+          product_description?: string | null
+          main_text?: string | null
+          description_text?: string | null
+          cta_text?: string | null
+          discount_percentage?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "banners_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partners"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       partners: {
         Row: {
           benefits_description: string | null
@@ -21,6 +74,7 @@ export type Database = {
           partner_url: string | null
           product_photos_urls: string[] | null
           reference_banners_urls: string[] | null
+          reference_style_analysis: Json | null
           regions: string[]
           status: string | null
           updated_at: string
@@ -36,6 +90,7 @@ export type Database = {
           partner_url?: string | null
           product_photos_urls?: string[] | null
           reference_banners_urls?: string[] | null
+          reference_style_analysis?: Json | null
           regions: string[]
           status?: string | null
           updated_at?: string
@@ -51,6 +106,7 @@ export type Database = {
           partner_url?: string | null
           product_photos_urls?: string[] | null
           reference_banners_urls?: string[] | null
+          reference_style_analysis?: Json | null
           regions?: string[]
           status?: string | null
           updated_at?: string

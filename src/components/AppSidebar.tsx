@@ -37,8 +37,8 @@ const menuItems = [
 
 export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps) {
   return (
-    <Sidebar className="border-r border-brand-100 w-64 h-screen" collapsible="none">
-      <SidebarContent className="bg-white flex flex-col h-full">
+    <Sidebar className="border-r border-brand-100 w-64 h-screen fixed" collapsible="none">
+      <SidebarContent className="bg-white flex flex-col h-screen">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
         </div>
 
         {/* Main Navigation */}
-        <div className="flex-1 px-4 overflow-hidden">
+        <div className="flex-1 px-4 min-h-0">
           <SidebarGroup>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">

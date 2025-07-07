@@ -1,4 +1,4 @@
-import OpenAI, { toFile } from 'openai';
+import OpenAI from 'openai';
 
 // Initialize OpenAI client
 const client = new OpenAI({
@@ -56,16 +56,9 @@ export function getAPIKeyStatus(): { configured: boolean; placeholder: boolean; 
 }
 
 /**
- * Analyze business context from partner information
+ * Generate comprehensive English prompt optimized for gradient extension
  */
-
-
-
-
-/**
- * Generate comprehensive, detailed prompt for banner creation
- */
-function generateComprehensivePrompt(request: BannerGenerationRequest): string {
+function generateEnglishPrompt(request: BannerGenerationRequest): string {
   const {
     partnerName,
     partnerUrl,
@@ -78,11 +71,12 @@ function generateComprehensivePrompt(request: BannerGenerationRequest): string {
     hasLogo,
     hasReferenceBanners,
     hasProductPhotos,
-    referenceImageCount
+    referenceImageCount,
+    selectedBenefit
   } = request;
 
-  // Build comprehensive prompt with context and specific display requirements
-  let prompt = `Create a professional, high-impact promotional banner in exactly 3:2 aspect ratio (landscape format) for "${partnerName}".
+  // Start with main prompt structure in English
+  let prompt = `Create an attractive horizontal promotional banner for the company "${partnerName}". The design should be clean, modern and well-balanced. It will be displayed in a website home carrousel of banners.
 
 BUSINESS CONTEXT (for understanding only - DO NOT display this text):
 - Company: ${partnerName}`;
@@ -91,171 +85,163 @@ BUSINESS CONTEXT (for understanding only - DO NOT display this text):
     prompt += `\n- Website: ${partnerUrl}`;
   }
   
+  // Benefit is mandatory and part of context
+  if (selectedBenefit) {
+    prompt += `\n- Target benefit/service: ${selectedBenefit}`;
+  }
+  
   if (benefits && benefits.length > 0) {
-    prompt += `\n- Business benefits/services: ${benefits.join(', ')}`;
+    prompt += `\n- Available services: ${benefits.slice(0, 5).join(', ')}`;
   }
 
-  prompt += `\n\nCRITICAL LAYOUT SPECIFICATIONS:
-- Aspect Ratio: EXACTLY 3:2 (landscape format - 1536x1024 pixels)
-- Mandatory Padding: 40px from all edges (creates inner content area of 1456x944)
-- Precise Three-Section Layout with Perfect Alignment:
-
-LEFT SECTION (364px width):
-- Company logo: Horizontally centered, positioned 25% from top (height: max 120px)
-- Promotional text "${promotionalText}": Horizontally centered, starts 40% from top, bold typography with proper line spacing
-
-CENTER SECTION (728px width):
-- Product images/visuals: Perfectly centered both horizontally and vertically within section
-- Main focal point with balanced proportions
-- If multiple products, arrange in balanced grid maintaining perfect center alignment
-
-RIGHT SECTION (364px width):
-- Discount information (if applicable): Centered horizontally, positioned in upper portion
-- Call-to-action "${ctaText}": Centered horizontally below discount, prominent button-style
-- Both elements vertically centered as a cohesive group within section
-
-PIXEL-PERFECT ALIGNMENT REQUIREMENTS:
-- All elements must align to invisible grid system for professional appearance
-- Consistent baseline alignment across all three sections
-- Logo: Maximum 120px height, optically centered in left section
-- Text elements: Proper kerning, line spacing, and optical centering (not geometric)
-- CTA button: Consistent padding, visually balanced proportions
-- Product staging: Center-aligned with equal margins on all sides
-- Visual separation: Clear breathing room between sections while maintaining cohesion
-- Typography scaling: All text sized appropriately for 1536x1024 viewing
-
-TEXT TO DISPLAY (use only this text):
-- Main message: "${promotionalText}"
+  prompt += `\n\nTEXT TO DISPLAY (in Spanish):
+- Main promotional text: "${promotionalText}"
 - Call-to-action: "${ctaText}"`;
 
-  // Add discount code if provided
+  // Add discount if provided
   if (promotionDiscount && promotionDiscount.trim()) {
-    prompt += `\n- Discount: "${promotionDiscount}" (highlight prominently)`;
+    prompt += `\n- Featured discount: "${promotionDiscount}%" (highlight prominently)`;
   }
 
-  // Reference images context
-  if (referenceImageCount && referenceImageCount > 0) {
-    prompt += `\n\nREFERENCE IMAGES (${referenceImageCount} provided):`;
-    if (hasLogo) {
-      prompt += `\n- Logo: Use in LEFT section`;
-    }
-    if (hasReferenceBanners) {
-      prompt += `\n- Style reference: Follow visual approach`;
-    }
-    if (hasProductPhotos) {
-      prompt += `\n- Product images: Feature in CENTER section`;
-    }
-    prompt += `\nIntegrate these images as actual elements in the design.`;
-  }
-
-  // Visual specifications
-  prompt += `\n\nPROFESSIONAL DESIGN QUALITY:
-- Typography: Premium fonts, sized for 3:2 landscape format visibility
-- Text Hierarchy: Logo small → Promotional text LARGE → CTA prominent
-- Colors: Professional, high-contrast palette`;
-
-  if (brandColors?.primary) {
-    prompt += ` (primary: ${brandColors.primary}`;
-    if (brandColors?.secondary) {
-      prompt += `, secondary: ${brandColors.secondary}`;
-    }
-    prompt += `)`;
-  }
-
-  prompt += `\n- Visual Balance: Perfect proportional distribution across three sections
-- Product Staging: Professional product photography styling
-- White Space: Generous spacing between sections for clarity
-- Brand Consistency: Cohesive visual identity throughout
-- Landscape Optimization: All elements scaled for 3:2 viewing experience`;
-
-  // Custom requirements
+  // Custom prompt gets priority and more relevance
   if (customPrompt && customPrompt.trim()) {
-    prompt += `\n\nCUSTOM REQUIREMENTS: ${customPrompt.trim()}`;
+    prompt += `\n\nCUSTOM DESIGN REQUIREMENTS (PRIORITY - follow these instructions carefully):
+${customPrompt.trim()}`;
   }
 
-  // Final instruction
-  prompt += `\n\nCRITICAL SUCCESS REQUIREMENTS:
-- ASPECT RATIO: Must be exactly 3:2 landscape format
-- LAYOUT: Logo+text LEFT, products CENTER, CTA+discount RIGHT
-- PADDING: 40px margins from all edges
-- SIZING: All elements properly scaled for 3:2 landscape banner
-- CONTENT: Only display specified promotional text and CTA, no additional text
+  // Brand and visual guidance
+  prompt += `\n\nVISUAL ELEMENTS:`;
+  
+  // Logo handling
+  if (hasLogo) {
+    prompt += `\n- Incorporate the company logo visibly and professionally on the left side`;
+  } else {
+    prompt += `\n- Use the company name "${partnerName}" with prominent and modern typography as the main visual element`;
+  }
 
-Create a professional 3:2 landscape marketing banner for ${partnerName} following these exact specifications.`;
+  // Product photos
+  if (hasProductPhotos) {
+    prompt += `\n- Visually showcase the products or services using the provided reference images in the center of the banner`;
+  } else if (benefits && benefits.length > 0) {
+    prompt += `\n- Include visual elements related to: ${benefits.slice(0, 3).join(', ')}`;
+  }
+
+  // Brand colors
+  if (brandColors?.primary) {
+    prompt += `\n- Use the brand's primary color: ${brandColors.primary}`;
+    if (brandColors?.secondary) {
+      prompt += ` and secondary color: ${brandColors.secondary}`;
+    }
+  } else {
+    prompt += `\n- Use a neutral and professional color palette (corporate blue, grays, whites)`;
+  }
+
+  // Style reference handling
+  if (hasReferenceBanners) {
+    prompt += `\n- Inspired by the visual style of the provided reference images`;
+  }
+
+  // Layout optimized for gradient extension - MORE DETAILED
+  prompt += `\n\nCRITICAL 4:1 EXPANSION DESIGN REQUIREMENTS:
+- Generate in 16:9 format (1536x1024) but design for 4:1 final display
+- MANDATORY: Create solid color or subtle gradient backgrounds on the LEFT and RIGHT edges (at least 200px each side)
+- These edge areas MUST use colors that can be seamlessly extended horizontally with gradients
+- Edge colors should be: solid brand colors, soft gradients, or neutral tones (avoid complex patterns, textures, or imagery on edges)
+- Main content (logo, text, products) concentrated in the central 60% of the banner
+- Left edge area: Should contain brand color or complementary solid color for gradient extension
+- Right edge area: Should contain matching or harmonious solid color for gradient extension
+- Avoid placing any important visual elements in the outer 20% on each side
+- Design as if the banner will be stretched horizontally - edges must flow naturally when extended`;
+
+  // Composition details
+  prompt += `\n\nSTYLE AND COMPOSITION:
+- Balanced composition with three sections: logo/brand (left-center), product/central visual (center), CTA/discount (right-center)
+- Adequate white space and attractive visual distribution
+- Modern typography, clear and high contrast against the background
+- Professional corporate appearance suitable for employee benefits platform
+- Ensure horizontal gradient-friendly design with extensible solid color edges`;
+
+  // Add context for HR benefits platform
+  prompt += `\n\nUSAGE CONTEXT:
+- The banner will be used on an employee benefits platform home carousel
+- Should have a modern and professional corporate appearance
+- Targeted at employees looking for business benefits and discounts
+- Will be displayed alongside other partner banners in a rotating carousel`;
+
+  // Final technical requirements
+  prompt += `\n\nTECHNICAL SPECIFICATIONS:
+- Edge gradient compatibility: Solid colors on left/right 200px margins
+- Central content area: 1392x1024 (avoid outer edges for important content)
+- All text content in Spanish language
+- High-quality, professional marketing banner appearance
+- Optimized for web display and carousel rotation
+
+Create a professional promotional banner for ${partnerName} following these exact specifications with particular attention to gradient-extensible edge design.`;
 
   return prompt;
 }
 
-
 /**
- * Convert image URL to File object for OpenAI API using toFile utility
+ * Describe reference images for prompt context
  */
-async function urlToFile(url: string, filename: string = 'reference.png'): Promise<File> {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-    const blob = await response.blob();
-    
-    // Use OpenAI's toFile utility to create proper File object
-    return await toFile(blob, filename, { type: blob.type });
-  } catch (error) {
-    console.warn(`Failed to convert URL to file: ${url}`, error);
-    throw error;
+function describeReferenceImages(request: BannerGenerationRequest): string {
+  const { hasLogo, hasReferenceBanners, hasProductPhotos, referenceImageCount } = request;
+  
+  if (!referenceImageCount || referenceImageCount === 0) {
+    return '';
   }
+
+  let description = `\n\nREFERENCE IMAGES (${referenceImageCount} provided):`;
+  
+  if (hasLogo) {
+    description += `\n- Company logo: Use in the left section of the banner`;
+  }
+  
+  if (hasReferenceBanners) {
+    description += `\n- Reference banners: Follow the visual style and design approach shown`;
+  }
+  
+  if (hasProductPhotos) {
+    description += `\n- Product photos: Incorporate in the central section of the banner showcasing the products/services`;
+  }
+  
+  description += `\nIntegrate these images as actual visual elements in the banner design.`;
+  
+  return description;
 }
 
 /**
- * Generate banner image using OpenAI Image API
+ * Generate banner image using OpenAI Image API (gpt-image-1 only)
  */
 export async function generateBannerImage(
   request: BannerGenerationRequest
 ): Promise<GeneratedBanner> {
   try {
-    const prompt = generateComprehensivePrompt(request);
-    console.log('Generated comprehensive prompt:', prompt);
-
-    // Handle reference images
-    const referenceFiles: File[] = [];
+    // Generate English prompt optimized for gradient extension
+    let prompt = generateEnglishPrompt(request);
+    
+    // Add reference images description if available
     if (request.referenceImages && request.referenceImages.length > 0) {
-      console.log(`Processing ${request.referenceImages.length} reference images...`);
+      prompt += describeReferenceImages(request);
       
-      // Convert reference image URLs to File objects
-      const validUrls = request.referenceImages.filter(url => url && url.startsWith('http'));
-      
-      for (const url of validUrls.slice(0, 4)) { // Limit to 4 reference images
-        try {
-          const file = await urlToFile(url, `reference-${Date.now()}.png`);
-          referenceFiles.push(file);
-          console.log(`Successfully processed reference image: ${url}`);
-        } catch (error) {
-          console.warn(`Failed to process reference image: ${url}`, error);
-        }
-      }
-    }
-
-    let result;
-
-    if (referenceFiles.length > 0) {
-      // Use image edit API with reference images
-      console.log(`Generating banner with ${referenceFiles.length} reference images using gpt-image-1`);
-      result = await client.images.edit({
-        model: "gpt-image-1",
-        image: referenceFiles,
-        prompt: prompt,
-      });
-    } else {
-      // Use basic image generation without reference images
-      console.log('Generating banner without reference images using gpt-image-1');
-      result = await client.images.generate({
-        model: "gpt-image-1", 
-        prompt: prompt,
-        size: "1536x1024", // 3:2 landscape format for better alignment
-        quality: "standard",
-        n: 1,
+      // Add reference URLs to prompt for context (since we can't pass files directly)
+      prompt += `\n\nVisual references available for inspiration:`;
+      request.referenceImages.slice(0, 4).forEach((url, index) => {
+        prompt += `\n- Image ${index + 1}: ${url}`;
       });
     }
+    
+    console.log('Generated English prompt for gradient extension:', prompt);
+
+    // Always use images.generate with gpt-image-1
+    console.log('Generating banner using gpt-image-1 at 1536x1024');
+    const result = await client.images.generate({
+      model: "gpt-image-1",
+      prompt: prompt,
+      size: "1536x1024", // 16:9 format optimized for gradient extension
+      quality: "medium",
+      n: 1,
+    });
 
     if (!result.data || result.data.length === 0) {
       throw new Error('No image generated by OpenAI API');
@@ -299,17 +285,19 @@ export async function generateBannerImage(
     console.error('Banner generation failed:', error);
     
     if (error instanceof Error) {
-      // Handle specific OpenAI API errors
+      // Handle specific OpenAI API errors with Spanish messages
       if (error.message.includes('API key')) {
-        throw new Error('OpenAI API key is missing or invalid. Please check your configuration.');
+        throw new Error('La API key de OpenAI falta o es inválida. Por favor verifica tu configuración.');
       } else if (error.message.includes('quota')) {
-        throw new Error('OpenAI API quota exceeded. Please check your account limits.');
+        throw new Error('Cuota de la API de OpenAI excedida. Por favor verifica los límites de tu cuenta.');
       } else if (error.message.includes('content policy')) {
-        throw new Error('Content policy violation. Please modify your prompt and try again.');
+        throw new Error('Violación de política de contenido. Por favor modifica tu prompt e intenta de nuevo.');
+      } else if (error.message.includes('billing')) {
+        throw new Error('Problema de facturación con la API de OpenAI. Por favor verifica tu cuenta.');
       }
     }
     
-    throw new Error(`Failed to generate banner: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new Error(`Error al generar banner: ${error instanceof Error ? error.message : 'Error desconocido'}`);
   }
 }
 
@@ -321,12 +309,9 @@ export async function extractBrandColors(partnerUrl: string): Promise<{ primary?
   try {
     // This is a simplified implementation
     // In production, you might use a service like Brand Colors API or implement color extraction
-    const defaultColors = {
-      primary: '#3B82F6', // Blue
-      secondary: '#E5E7EB' // Gray
-    };
-    
-    return defaultColors;
+    // Colors should be defined from partner's brand guidelines, not extracted from URL
+    console.warn('extractBrandColors called but colors should come from partner brand guidelines');
+    return {};
   } catch (error) {
     console.warn('Failed to extract brand colors:', error);
     return {};

@@ -5,62 +5,34 @@ import { Button } from '@/components/ui/button';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
 import { usePartners, type Partner } from '@/hooks/usePartners';
+import { useBanners } from '@/hooks/useBanners';
 import PartnerList from '@/components/PartnerList';
 import PartnerCreationForm from '@/components/PartnerCreationForm';
 import BannerHistory from '@/components/BannerHistory';
 import BannerGeneration from '@/components/BannerGeneration';
+import BannerEditor from '@/components/BannerEditor';
+import '@/lib/storage-test'; // Import storage test to run automatically
 
 const Index = () => {
   const [activeSection, setActiveSection] = useState('home');
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
+  const [editingBanner, setEditingBanner] = useState<any>(null);
   const { partners } = usePartners();
+  const { banners, isLoading, fetchBanners, getRecentBanners, getTotalBanners, getPartnerBannerCount } = useBanners();
 
-  // Get saved banners from localStorage
-  const getSavedBanners = () => {
-    try {
-      const saved = localStorage.getItem('savedBanners');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  };
-
-  const [savedBanners, setSavedBanners] = useState(() => getSavedBanners());
-  const recentBanners = savedBanners.slice(0, 3); // Show only the 3 most recent
-
-  // Listen for localStorage changes and update savedBanners
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setSavedBanners(getSavedBanners());
-    };
-
-    // Listen for custom storage event
-    window.addEventListener('bannerSaved', handleStorageChange);
-    // Also listen for storage events (for cross-tab updates)
-    window.addEventListener('storage', handleStorageChange);
-
-    return () => {
-      window.removeEventListener('bannerSaved', handleStorageChange);
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
+  const recentBanners = getRecentBanners(3); // Show only the 3 most recent
 
   // Refresh banners when returning to home section
   useEffect(() => {
     if (activeSection === 'home') {
-      setSavedBanners(getSavedBanners());
+      fetchBanners();
     }
   }, [activeSection]);
 
-  // Calculate banner count per partner
-  const getPartnerBannerCount = (partnerId: string) => {
-    return savedBanners.filter((banner: any) => banner.partnerId === partnerId).length;
-  };
-
   const stats = [
     { title: 'Socios Totales', value: partners.length.toString(), icon: Users },
-    { title: 'Banners Generados', value: savedBanners.length.toString(), icon: Image },
+    { title: 'Banners Generados', value: getTotalBanners().toString(), icon: Image },
   ];
 
   const handleEditPartner = (partner: Partner) => {
@@ -81,6 +53,11 @@ const Index = () => {
   const handleCreateBannerForPartner = (partnerId: string) => {
     setSelectedPartnerId(partnerId);
     setActiveSection('create-banner');
+  };
+
+  const handleEditBanner = (banner: any) => {
+    setEditingBanner(banner);
+    setActiveSection('edit-banner');
   };
 
   const handleSectionChange = (section: string) => {
@@ -185,7 +162,7 @@ const Index = () => {
             </Card>
 
             {/* Recent Banners or Empty State */}
-            {savedBanners.length === 0 ? (
+            {getTotalBanners() === 0 ? (
               /* Empty State - No banners created yet */
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardContent className="p-12 text-center">
@@ -204,7 +181,7 @@ const Index = () => {
                 </CardContent>
               </Card>
             ) : (
-              /* Recent Banners Section */
+              // Recent Banners Section
               <Card className="bg-white border border-gray-200 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <div>
@@ -225,17 +202,34 @@ const Index = () => {
                     {recentBanners.map((banner: any, index: number) => (
                       <div key={banner.id || index} className="group relative">
                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
-                          <img 
-                            src={banner.selectedOption?.desktopUrl || banner.imageUrl} 
-                            alt={banner.selectedOption?.copy || banner.customCopy || `Banner ${index + 1}`}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                          />
+                          {banner.image_url ? (
+                            <img 
+                              src={banner.image_url} 
+                              alt={banner.banner_title || `Banner ${index + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                              onError={(e) => {
+                                console.error('Failed to load banner image:', banner.image_url);
+                                // Show placeholder on error
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <div className="w-full h-full flex items-center justify-center bg-gray-100 hidden">
+                            <Image className="w-12 h-12 text-gray-400" />
+                          </div>
                         </div>
                         <div className="mt-2">
                           <p className="text-sm font-medium text-gray-900 truncate">
-                            {banner.selectedOption?.copy || banner.customCopy || `Banner ${index + 1}`}
+                            {banner.banner_title || `Banner ${index + 1}`}
                           </p>
-                          <p className="text-xs text-gray-500">{banner.partnerName || 'Sin socio'}</p>
+                          <p className="text-xs text-gray-500">
+                            {partners.find(p => p.id === banner.partner_id)?.name || 'Sin socio'}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(banner.created_at).toLocaleDateString()}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -301,11 +295,35 @@ const Index = () => {
         );
 
       case 'banner-list':
-        return <BannerHistory />;
+        return <BannerHistory onEditBanner={handleEditBanner} />;
 
       case 'partner-banners':
         const selectedPartner = partners.find(p => p.id === selectedPartnerId);
-        return <BannerHistory partnerId={selectedPartnerId} partnerName={selectedPartner?.name} onCreateBanner={() => handleCreateBannerForPartner(selectedPartnerId)} />;
+        return <BannerHistory partnerId={selectedPartnerId} partnerName={selectedPartner?.name} onCreateBanner={() => handleCreateBannerForPartner(selectedPartnerId)} onEditBanner={handleEditBanner} />;
+
+      case 'edit-banner':
+        if (editingBanner) {
+          const partner = partners.find(p => p.id === editingBanner.partnerId);
+          
+          return (
+            <BannerEditor
+              backgroundImageUrl={editingBanner.imageUrl || editingBanner.image_url || ""} // Support both formats
+              partnerId={editingBanner.partnerId || editingBanner.partner_id || ""}
+              partnerName={editingBanner.partner || editingBanner.partner_name || ""}
+              partnerLogoUrl={partner?.logo_url}
+              bannerText={editingBanner.main_text || editingBanner.banner_title || editingBanner.title || ""}
+              descriptionText={editingBanner.description_text || ""}
+              ctaText={editingBanner.cta_text || "Ver más"}
+              bannerId={editingBanner.id}
+              onExit={() => setActiveSection('banner-list')}
+              onSave={(composition) => {
+                console.log('Banner composition saved:', composition);
+                setActiveSection('banner-list');
+              }}
+            />
+          );
+        }
+        return null;
 
       case 'create-banner':
         if (selectedPartnerId) {
@@ -381,14 +399,14 @@ const Index = () => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen bg-brand-25 flex w-full">
+      <div className="min-h-screen bg-brand-25 w-full">
         <AppSidebar activeSection={activeSection} setActiveSection={handleSectionChange} />
           
-        <div className="flex-1 flex flex-col min-h-screen">
-            {/* Main Content */}
-          <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
-              {renderContent()}
-            </main>
+        {/* Main Content - offset by sidebar width */}
+        <div className="ml-64 min-h-screen">
+          <main className="p-6 lg:p-8 min-h-screen overflow-y-auto">
+            {renderContent()}
+          </main>
         </div>
       </div>
     </SidebarProvider>

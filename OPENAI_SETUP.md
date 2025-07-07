@@ -1,22 +1,31 @@
-# OpenAI Banner Generation Setup
+# AI Banner Generation Setup
 
 ## Overview
 
-This integration generates promotional banner images using OpenAI's Image API, dynamically crafted from your partner and benefit information.
+This app supports two powerful AI image generation services for creating promotional banners:
+
+- **OpenAI GPT** - Using DALL-E for reliable, high-quality image generation
+- **Flux Kontext Pro** - Black Forest Labs' advanced image editing with context-aware capabilities
+
+Both services use the same partner data and prompts, allowing you to choose the best AI engine for your needs.
 
 ## Features
 
-✅ **AI-Powered Banner Generation** - Uses OpenAI's `gpt-image-1` model for image creation
+✅ **Dual AI Service Support** - Choose between OpenAI GPT and Flux Kontext Pro
+✅ **AI-Powered Banner Generation** - High-quality image creation with both services
 ✅ **Dynamic Prompt Creation** - Automatically generates prompts from partner data and benefits  
 ✅ **Reference Image Support** - Uses partner logos, reference banners, and product photos
 ✅ **Brand Color Integration** - Extracts and applies brand colors automatically
 ✅ **Multiple Style Options** - Audaz y Dinámico, Minimalista, Vibrante
-✅ **16:9 Aspect Ratio** - Perfect for web banners
+✅ **3:2 Aspect Ratio** - Perfect for promotional banners (1536x1024px)
+✅ **Real-time Progress** - Live progress updates (especially for Flux)
 ✅ **Download & Save** - Direct download and project saving capabilities
 
 ## Setup Instructions
 
-### 1. Get Your OpenAI API Key
+### Option 1: OpenAI Setup
+
+#### 1. Get Your OpenAI API Key
 
 1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
 2. Sign in or create an account
@@ -24,26 +33,55 @@ This integration generates promotional banner images using OpenAI's Image API, d
 4. Click "Create new secret key"
 5. Copy your API key (starts with `sk-`)
 
-### 2. Configure Environment Variables
+#### 2. Configure OpenAI Environment Variable
 
-Create a `.env.local` file in your project root and add:
+Add to your `.env.local` file:
 
 ```bash
 VITE_OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-**Important:** 
-- Never commit your API key to version control
-- The `.env.local` file is already in `.gitignore`
-- Keep your API key secure and don't share it
+### Option 2: Flux Kontext Pro Setup
 
-### 3. Restart Development Server
+#### 1. Get Your Flux API Key
 
-After adding the API key, restart your development server:
+1. Go to [Black Forest Labs API](https://api.bfl.ai/)
+2. Sign in or create an account
+3. Navigate to your account dashboard
+4. Generate a new API key
+5. Copy your API key
+
+#### 2. Configure Flux Environment Variable
+
+Add to your `.env.local` file:
+
+```bash
+VITE_FLUX_API_KEY=your_flux_api_key_here
+```
+
+### Both Services Setup
+
+You can configure both services to switch between them:
+
+```bash
+# .env.local
+VITE_OPENAI_API_KEY=your_openai_api_key_here
+VITE_FLUX_API_KEY=your_flux_api_key_here
+```
+
+### Restart Development Server
+
+After adding any API key, restart your development server:
 
 ```bash
 npm run dev
 ```
+
+**Important Security Notes:** 
+- Never commit your API keys to version control
+- The `.env.local` file is already in `.gitignore`
+- Keep your API keys secure and don't share them
+- For production, implement backend proxy for API calls
 
 ## How It Works
 
@@ -102,15 +140,30 @@ Click "Generar Banner" to create your AI-powered banner. The system will:
 
 ## Technical Details
 
-### API Models Used
+### OpenAI Models Used
 - **gpt-image-1** - For reference image editing (preferred when logos/assets available)
 - **dall-e-3** - Fallback for generation without reference images
 
+### Flux Kontext Pro Features
+- **flux-kontext-pro** - Advanced image editing with reference context
+- **Asynchronous Processing** - Real-time progress tracking
+- **Context-Aware Generation** - Better understanding of reference images
+- **Base64 Input** - Optimized for composite reference images
+
 ### Image Specifications
-- **Aspect Ratio:** 16:9 (perfect for web banners)
-- **Resolution:** 1792x1024px (high quality)
+- **Aspect Ratio:** 3:2 (perfect for promotional banners)
+- **Resolution:** 1536x1024px (high quality)
 - **Format:** PNG with transparency support
 - **Optimization:** Web-ready compression
+
+### Service Comparison
+| Feature | OpenAI GPT | Flux Kontext Pro |
+|---------|------------|------------------|
+| **Speed** | Fast (~10-15s) | Moderate (~30-60s) |
+| **Context Understanding** | Good | Excellent |
+| **Reference Images** | File-based | Base64-optimized |
+| **Progress Tracking** | Simulated | Real-time |
+| **Cost** | ~$0.04/image | Varies by usage |
 
 ### Error Handling
 The system provides clear feedback for:
