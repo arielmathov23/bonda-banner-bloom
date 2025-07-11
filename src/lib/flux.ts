@@ -750,26 +750,50 @@ function generateStyledBannerPrompt(
   const brandTone = styleAnalysis?.reference_style?.brand_personality?.tone || 'professional and modern';
   const layoutStyle = styleAnalysis?.reference_style?.layout_composition?.visual_balance || 'balanced and clean layout';
 
-  const prompt = `[BANNER BACKGROUND GENERATION - NO TEXT OVERLAY]
+  const prompt = `
+  Generate a background image using the provided product as a support element and following the JSON styleguide inside <styleguide> tags.
+  You will be given an orientation to apply effects, as your image will be used in further processes to embed texts and logos.
+  It is crucial you DO NOT WRITE any characters/numbers/letters/symbols, it's completely prohibited to use these as a resource.
+  
+<expectations>
+- Referended product image can take up to 1/5 of the image size. You can find more information inside <product_placement> tags
+- Ultra-high quality commercial banner background
+- Marketing campaign ready
+- Optimized for digital advertising platforms
+- Clean, modern aesthetic foundation
+- Strategic white/clear space planning for text elements
+- DO NOT include any text, words, or letters. Text overlay will be added separately in post-processing. DO NOT WRITE ANY TEXT, you cannot use any fonts/letters/characters/numbers.
+- Focus on creating a sophisticated background.
+- Leave clear space areas for text placement (left side for logo and text)
+</expectations>
+  
+<product>
+${productDescription}
+</product>
 
-[STYLE ANALYSIS: ${JSON.stringify(styleAnalysis?.reference_style || {})}]
+<styleguide>
+${JSON.stringify(styleAnalysis?.reference_style || {})}
+</styleguide>
 
-[PRODUCT DESCRIPTION: ${productDescription}]
-
-[SPECIFICATIONS]
-- Dimensions: 1440x352 pixels (horizontal marketing banner)
+<spec>
 - Brand: ${partnerName}
 - Style: ${brandTone} 
 - Layout: ${layoutStyle}
 - Color Palette: ${colorPalette}
 - Background: ${backgroundTreatment}
+</spec>
 
-[CRITICAL INSTRUCTIONS]
-- DO NOT include any text, words, or letters.Text overlay will be added separately in post-processing
-- Focus on creating a sophisticated banner background.
-- Leave clear space areas for text placement (left side for logo and text)
+<product_placement>
+- Product should occupy MAXIMUM 20% of the total banner area
+- Position product in center-right or right portion of the banner
+- Product should be secondary to the overall design composition
+- Maintain ample white/clear space around the product
+- Product should complement the background, not dominate it
+- Scale product appropriately to maintain visual hierarchy
+- Ensure product doesn't interfere with left-side text placement areas
+</product_placement>
 
-[BACKGROUND TREATMENT SPECIFICATIONS]
+<design>
 - Left Side Background (60% of banner): ${leftSideBackground}
 - Right Side Background (40% of banner): ${rightSideBackground}
 - Text Overlay Zones: ${textOverlayZones}
@@ -778,17 +802,6 @@ function generateStyledBannerPrompt(
 - Create smooth transitions between different background zones
 - Optimize left side specifically for white/light colored text readability
 - Optimize right side for product integration while maintaining text visibility
-
-[PRODUCT INTEGRATION RULES]
-- Product should occupy MAXIMUM 20% of the total banner area
-- Position product in center-right or right portion of the banner
-- Product should be secondary to the overall design composition
-- Maintain ample white/clear space around the product
-- Product should complement the background, not dominate it
-- Scale product appropriately to maintain visual hierarchy
-- Ensure product doesn't interfere with left-side text placement areas
-
-[DESIGN REQUIREMENTS]
 - Professional marketing banner background
 - High-quality commercial-grade aesthetic
 - Product integrated naturally but not overwhelming the composition
@@ -798,8 +811,9 @@ function generateStyledBannerPrompt(
 - Professional lighting and composition suitable for digital advertising
 - 80% of space dedicated to background design and text areas
 - 20% maximum space for product element
+</design>
 
-[LAYOUT COMPOSITION]
+<layout>
 - Left 60% of banner: Reserved for logo, main text, and CTA button
   * Background treatment: ${leftSideBackground}
   * Optimize for text contrast and readability
@@ -812,15 +826,7 @@ function generateStyledBannerPrompt(
 - Maintain visual balance between text space and product space
 - Ensure clear visual separation between content areas
 - Create seamless transitions between left and right background treatments
-
-[TECHNICAL SPECIFICATIONS]
-- Ultra-high quality commercial banner background
-- Marketing campaign ready
-- Optimized for digital advertising platforms
-- Clean, modern aesthetic foundation
-- Strategic white/clear space planning for text elements
-
-Generate a sophisticated banner background that incorporates the referenced product image as a supporting element (maximum 20% of total space) while maintaining the specified brand style and leaving appropriate clear areas for text overlay elements on the left side.`;
+</layout>`;
 
   return prompt;
 }
