@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { 
-  ZoomIn, ZoomOut, Download, Save, Type, Image, Trash2, Copy, Move, 
+  ZoomIn, ZoomOut, Save, Type, Image, Trash2, Copy, Move, 
   MousePointer2, Bold, Italic, Underline, AlignLeft, AlignCenter, 
   AlignRight, Minus, Plus, Layers, Eye, EyeOff, Edit2, RotateCw, Lock, X, Upload
 } from 'lucide-react';
@@ -15,6 +15,14 @@ import { toast } from '@/hooks/use-toast';
 import { getBannerForEditor } from '@/lib/enhanced-banner-service';
 import { usePartners } from '@/hooks/usePartners';
 import type { BannerComposition, BannerAsset, EditorState, ExportOptions } from '@/types/banner-editor';
+
+// Alignment guide interface
+interface AlignmentGuide {
+  type: 'vertical' | 'horizontal';
+  position: number;
+  start: number;
+  end: number;
+}
 
 interface BannerEditorProps {
   backgroundImageUrl: string;
@@ -39,10 +47,10 @@ interface BrandGuidelines {
 
 // Fixed positioning layout for aligned elements
 const FIXED_LAYOUT = {
-  logo: { x: 1200, y: 60, width: 180, height: 108 }, // Logo on right side, bigger, aligned with title top
-  mainText: { x: 60, y: 60, width: 400, height: 50 }, // Title at top left
-  descriptionText: { x: 60, y: 120, width: 480, height: 40 }, // Description below title
-  ctaButton: { x: 60, y: 170, width: 160, height: 45 }, // CTA button below description, vertically stacked
+  logo: { x: 1200, y: 40 }, // Logo on right side, uses natural image dimensions
+  mainText: { x: 160, y: 80, width: 400, height: 50 }, // Title at top left
+  descriptionText: { x: 160, y: 130, width: 480, height: 40 }, // Description below title
+  ctaButton: { x: 150, y: 220, width: 160, height: 45 }, // CTA button below description, vertically stacked
 };
 
 const BannerEditor: React.FC<BannerEditorProps> = ({
@@ -60,7 +68,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   const { partners } = usePartners();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
   const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
@@ -72,6 +80,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   const [isResizing, setIsResizing] = useState(false);
   const [resizeHandle, setResizeHandle] = useState<string | null>(null);
   const [initialResizeData, setInitialResizeData] = useState<any>(null);
+  const [dragStartPosition, setDragStartPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragReady, setIsDragReady] = useState(false);
   
   // Loading state for banner data
   const [isLoadingBanner, setIsLoadingBanner] = useState(false);
@@ -93,6 +103,107 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   
   // Logo upload state
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  
+  // Alignment guides state
+  const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
+  
+  // Helper function for consistent logo sizing: max height 150px, maintain aspect ratio
+  const calculateLogoSize = (naturalWidth: number, naturalHeight: number) => {
+    const maxHeight = 150;
+    let logoWidth = naturalWidth;
+    let logoHeight = naturalHeight;
+    
+    if (logoHeight > maxHeight) {
+      const scale = maxHeight / logoHeight;
+      logoHeight = maxHeight;
+      logoWidth = logoWidth * scale;
+    }
+    
+    console.log(`Logo sizing: ${naturalWidth}x${naturalHeight} → ${Math.round(logoWidth)}x${Math.round(logoHeight)}`);
+    return { width: logoWidth, height: logoHeight };
+  };
+
+  // Calculate alignment guides during drag
+  const calculateAlignmentGuides = (draggedAsset: BannerAsset, newX: number, newY: number): { guides: AlignmentGuide[], snappedX: number, snappedY: number } => {
+    const guides: AlignmentGuide[] = [];
+    const snapTolerance = 8; // pixels
+    let snappedX = newX;
+    let snappedY = newY;
+
+    // Get bounds of dragged asset at new position
+    const draggedBounds = {
+      left: newX,
+      right: newX + draggedAsset.size.width,
+      centerX: newX + draggedAsset.size.width / 2,
+      top: newY,
+      bottom: newY + draggedAsset.size.height,
+      centerY: newY + draggedAsset.size.height / 2
+    };
+
+    // Check alignment with other assets
+    const otherAssets = composition.assets.filter(asset => asset.id !== draggedAsset.id);
+    
+    for (const asset of otherAssets) {
+      const assetBounds = {
+        left: asset.position.x,
+        right: asset.position.x + asset.size.width,
+        centerX: asset.position.x + asset.size.width / 2,
+        top: asset.position.y,
+        bottom: asset.position.y + asset.size.height,
+        centerY: asset.position.y + asset.size.height / 2
+      };
+
+      // Vertical alignment checks
+      const verticalAlignments = [
+        { position: assetBounds.left, type: 'left' as const, dragPos: draggedBounds.left },
+        { position: assetBounds.centerX, type: 'center' as const, dragPos: draggedBounds.centerX },
+        { position: assetBounds.right, type: 'right' as const, dragPos: draggedBounds.right }
+      ];
+
+      for (const alignment of verticalAlignments) {
+        const distance = Math.abs(alignment.dragPos - alignment.position);
+        if (distance < snapTolerance) {
+          // Snap to this alignment
+          const offsetX = alignment.position - alignment.dragPos;
+          snappedX = newX + offsetX;
+          
+          // Add guide line
+          guides.push({
+            type: 'vertical',
+            position: alignment.position,
+            start: Math.min(assetBounds.top, newY),
+            end: Math.max(assetBounds.bottom, newY + draggedAsset.size.height)
+          });
+        }
+      }
+
+      // Horizontal alignment checks
+      const horizontalAlignments = [
+        { position: assetBounds.top, type: 'top' as const, dragPos: draggedBounds.top },
+        { position: assetBounds.centerY, type: 'center' as const, dragPos: draggedBounds.centerY },
+        { position: assetBounds.bottom, type: 'bottom' as const, dragPos: draggedBounds.bottom }
+      ];
+
+      for (const alignment of horizontalAlignments) {
+        const distance = Math.abs(alignment.dragPos - alignment.position);
+        if (distance < snapTolerance) {
+          // Snap to this alignment
+          const offsetY = alignment.position - alignment.dragPos;
+          snappedY = newY + offsetY;
+          
+          // Add guide line
+          guides.push({
+            type: 'horizontal',
+            position: alignment.position,
+            start: Math.min(assetBounds.left, newX),
+            end: Math.max(assetBounds.right, newX + draggedAsset.size.width)
+          });
+        }
+      }
+    }
+
+    return { guides, snappedX, snappedY };
+  };
   
   // Font options including partner fonts
   const fontOptions = [
@@ -216,18 +327,39 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       // Create object URL for preview
       const objectUrl = URL.createObjectURL(file);
       
-      // Update or create logo asset
+      // Load image to get natural dimensions
+      const img = document.createElement('img');
+      img.onload = () => {
+        console.log(`Logo loaded: ${img.naturalWidth}x${img.naturalHeight}`);
+        
+        // Scale logo to max height 150px, maintain aspect ratio
+        const { width: logoWidth, height: logoHeight } = calculateLogoSize(img.naturalWidth, img.naturalHeight);
+        
+        // Update or create logo asset with proper dimensions
       const logoAsset = composition.assets.find(asset => asset.type === 'logo');
       if (logoAsset) {
-        // Update existing logo
-        updateAsset(logoAsset.id, { imageUrl: objectUrl });
+          // Update existing logo with new image and dimensions
+          updateComposition(prev => ({
+            ...prev,
+            assets: prev.assets.map(asset => 
+              asset.id === logoAsset.id
+                ? {
+                    ...asset,
+                    imageUrl: objectUrl,
+                    size: { width: logoWidth, height: logoHeight }
+                  }
+                : asset
+            ),
+            lastModified: new Date()
+          }));
+          console.log(`Logo updated: ${logoWidth}x${logoHeight}`);
       } else {
-        // Create new logo asset
+          // Create new logo asset with proper dimensions
         const newLogoAsset: BannerAsset = {
           id: `logo_${Date.now()}`,
           type: 'logo',
           position: { x: FIXED_LAYOUT.logo.x, y: FIXED_LAYOUT.logo.y },
-          size: { width: FIXED_LAYOUT.logo.width, height: FIXED_LAYOUT.logo.height },
+            size: { width: logoWidth, height: logoHeight },
           rotation: 0,
           imageUrl: objectUrl
         };
@@ -237,7 +369,10 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           assets: [...prev.assets, newLogoAsset],
           lastModified: new Date()
         }));
+          console.log(`Logo created: ${logoWidth}x${logoHeight}`);
       }
+      };
+      img.src = objectUrl;
       
       toast({
         title: "Logo actualizado",
@@ -304,7 +439,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         id: `logo_${Date.now()}`,
         type: 'logo',
         position: { x: FIXED_LAYOUT.logo.x, y: FIXED_LAYOUT.logo.y },
-        size: { width: FIXED_LAYOUT.logo.width, height: FIXED_LAYOUT.logo.height },
+        size: { width: 100, height: 100 }, // Default size, will be updated to proper dimensions (max height 150px)
         rotation: 0,
         imageUrl: actualPartnerLogoUrl
       });
@@ -369,28 +504,23 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       lastModified: new Date()
     }));
 
-    // Only load saved composition if we have one and it's different from current banner data
+    // Load saved composition if available (user explicitly saved changes)
     const key = `banner_composition_${bannerId}`;
     const saved = localStorage.getItem(key);
     
     if (saved) {
       try {
         const savedComposition = JSON.parse(saved);
-        // Check if the saved composition has the same banner text as current
-        const savedTextAsset = savedComposition.assets.find((a: any) => a.type === 'text');
-        const savedCtaAsset = savedComposition.assets.find((a: any) => a.type === 'cta');
         
-        // Only load if the saved composition has different text (indicating user edits)
-        const savedDescriptionAsset = savedComposition.assets.find((a: any) => a.id.startsWith('description_'));
+        // Always load saved composition - user explicitly saved their changes
+        // This includes position changes, size changes, text edits, etc.
+        console.log('Loading saved composition for banner:', bannerId);
+        setComposition(savedComposition);
+        setEditorState(prev => ({ ...prev, zoom: savedComposition.zoom || 1 }));
         
-        if (savedTextAsset && savedTextAsset.text !== actualBannerText ||
-            savedCtaAsset && savedCtaAsset.text !== actualCtaText ||
-            savedDescriptionAsset && savedDescriptionAsset.text !== actualDescriptionText) {
-          setComposition(savedComposition);
-          setEditorState(prev => ({ ...prev, zoom: savedComposition.zoom || 1 }));
-        }
       } catch (error) {
-        console.error('Failed to load composition:', error);
+        console.error('Failed to load saved composition:', error);
+        // If loading fails, keep the initial composition
       }
     }
   }, [bannerId, actualPartnerLogoUrl, actualBannerText, actualDescriptionText, actualCtaText, brandGuidelines]);
@@ -618,7 +748,31 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         ctx.restore();
       }
     });
-  }, [composition, backgroundImage, logoImage, editorState.selectedAssetId, editingText]);
+
+    // Draw alignment guides
+    if (alignmentGuides.length > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#ff6b6b';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([5, 5]);
+      
+      alignmentGuides.forEach(guide => {
+        if (guide.type === 'vertical') {
+          ctx.beginPath();
+          ctx.moveTo(guide.position, guide.start);
+          ctx.lineTo(guide.position, guide.end);
+          ctx.stroke();
+        } else if (guide.type === 'horizontal') {
+          ctx.beginPath();
+          ctx.moveTo(guide.start, guide.position);
+          ctx.lineTo(guide.end, guide.position);
+          ctx.stroke();
+        }
+      });
+      
+      ctx.restore();
+    }
+  }, [composition, backgroundImage, logoImage, editorState.selectedAssetId, editingText, alignmentGuides]);
 
   // Force re-render when background image changes
   useEffect(() => {
@@ -657,54 +811,45 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         }, 2000);
       }
       
-      if (isSupabaseStorage) {
-        // For Supabase storage: load without CORS to avoid taint (we control this)
-        console.log('Loading Supabase storage image without CORS for clean canvas export');
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('Supabase storage image loaded successfully (canvas export ready)');
-          setBackgroundImage(img);
+      // Load background image optimized for export - try to avoid CORS tainting
+      console.log('Loading background image optimized for export...');
+      const img = document.createElement('img');
+      
+      // First try: Load without CORS to avoid tainting (works for same-origin and permissive CORS)
+      img.onload = () => {
+        console.log('✅ Background image loaded without CORS - canvas export will work perfectly');
+        setBackgroundImage(img);
+      };
+      
+      img.onerror = (error) => {
+        console.warn('Background image failed without CORS, trying with crossOrigin...');
+        // Second try: Use crossOrigin (might work if server supports CORS)
+        const corsImg = document.createElement('img');
+        corsImg.crossOrigin = 'anonymous';
+        
+        corsImg.onload = () => {
+          console.log('✅ Background image loaded with CORS - canvas export should work');
+          setBackgroundImage(corsImg);
         };
-        img.onerror = (error) => {
-          console.error('Failed to load Supabase storage image:', error);
-        };
-        img.src = actualBackgroundImageUrl;
-      } else if (isExternalService) {
-        // For external services: try without CORS first, then with CORS as fallback
-        console.log('Loading external service image - trying without CORS first');
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('External image loaded without CORS (canvas export ready)');
-          setBackgroundImage(img);
-        };
-        img.onerror = (error) => {
-          console.warn('External image failed without CORS, trying with CORS (will taint canvas)');
-          // Try with crossOrigin as fallback (this will taint canvas but at least shows image)
-          const corsImg = document.createElement('img');
-          corsImg.crossOrigin = 'anonymous';
-          corsImg.onload = () => {
-            console.log('External image loaded with CORS (canvas will be tainted)');
-            setBackgroundImage(corsImg);
+        
+        corsImg.onerror = (corsError) => {
+          console.warn('Background image failed with CORS too. Trying as display-only...');
+          // Third try: Load for display only (will taint canvas but shows image)
+          const displayImg = document.createElement('img');
+          displayImg.onload = () => {
+            console.log('⚠️ Background image loaded for display only - canvas may be tainted');
+            setBackgroundImage(displayImg);
           };
-          corsImg.onerror = (corsError) => {
-            console.error('Both image loading methods failed:', corsError);
+          displayImg.onerror = (finalError) => {
+            console.error('❌ All background image loading methods failed:', finalError);
           };
-          corsImg.src = actualBackgroundImageUrl;
+          displayImg.src = actualBackgroundImageUrl;
         };
-        img.src = actualBackgroundImageUrl;
-      } else {
-        // For other URLs: try standard loading
-        console.log('Loading standard image URL');
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('Standard image loaded successfully');
-          setBackgroundImage(img);
-        };
-        img.onerror = (error) => {
-          console.error('Failed to load standard image:', error);
-        };
-        img.src = actualBackgroundImageUrl;
-      }
+        
+        corsImg.src = actualBackgroundImageUrl;
+      };
+      
+      img.src = actualBackgroundImageUrl;
       
       // Update composition with actual background image URL
       setComposition(prev => ({
@@ -733,65 +878,93 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         isExternalService
       });
       
-      if (isSupabaseStorage) {
-        // For Supabase storage: load without CORS to avoid taint
-        console.log('Loading Supabase storage logo without CORS for clean canvas export');
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('Supabase storage logo loaded successfully (canvas export ready)');
-          setLogoImage(img);
+      // Load logo image optimized for export - try to avoid CORS tainting
+      console.log('Loading logo image optimized for export...');
+      const img = document.createElement('img');
+      
+      // First try: Load without CORS to avoid tainting
+      img.onload = () => {
+        console.log('✅ Logo image loaded without CORS - canvas export will work perfectly');
+        setLogoImage(img);
+      };
+      
+      img.onerror = (error) => {
+        console.warn('Logo image failed without CORS, trying with crossOrigin...');
+        // Second try: Use crossOrigin (might work if server supports CORS)
+        const corsImg = document.createElement('img');
+        corsImg.crossOrigin = 'anonymous';
+        
+        corsImg.onload = () => {
+          console.log('✅ Logo image loaded with CORS - canvas export should work');
+          setLogoImage(corsImg);
         };
-        img.onerror = (error) => {
-          console.error('Failed to load Supabase storage logo:', error);
-        };
-        img.src = actualPartnerLogoUrl;
-      } else if (isExternalService) {
-        // For external services: try without CORS first, then with CORS as fallback
-        console.log('Loading external service logo - trying without CORS first');
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('External logo loaded without CORS (canvas export ready)');
-          setLogoImage(img);
-        };
-        img.onerror = (error) => {
-          console.warn('External logo failed without CORS, trying with CORS (will taint canvas)');
-          // Try with crossOrigin as fallback
-          const corsImg = document.createElement('img');
-          corsImg.crossOrigin = 'anonymous';
-          corsImg.onload = () => {
-            console.log('External logo loaded with CORS (canvas will be tainted)');
-            setLogoImage(corsImg);
+        
+        corsImg.onerror = (corsError) => {
+          console.warn('Logo image failed with CORS too. Trying as display-only...');
+          // Third try: Load for display only (will taint canvas but shows image)
+          const displayImg = document.createElement('img');
+          displayImg.onload = () => {
+            console.log('⚠️ Logo image loaded for display only - canvas may be tainted');
+            setLogoImage(displayImg);
           };
-          corsImg.onerror = (corsError) => {
-            console.error('Both logo loading methods failed:', corsError);
+          displayImg.onerror = (finalError) => {
+            console.error('❌ All logo image loading methods failed:', finalError);
           };
-          corsImg.src = actualPartnerLogoUrl;
+          displayImg.src = actualPartnerLogoUrl;
         };
-        img.src = actualPartnerLogoUrl;
-      } else {
-        // For other URLs: try standard loading
-        console.log('Loading standard logo URL');
-        const img = document.createElement('img');
-        img.onload = () => {
-          console.log('Standard logo loaded successfully');
-          setLogoImage(img);
-        };
-        img.onerror = (error) => {
-          console.error('Failed to load standard logo:', error);
-        };
-        img.src = actualPartnerLogoUrl;
-      }
+        
+        corsImg.src = actualPartnerLogoUrl;
+      };
+      
+      img.src = actualPartnerLogoUrl;
     }
   }, [actualPartnerLogoUrl]);
 
+  // Update logo asset size to proper dimensions when logo loads (max height 150px)
+  useEffect(() => {
+    if (logoImage) {
+      const logoAsset = composition.assets.find(asset => asset.type === 'logo');
+      if (logoAsset) {
+        console.log('Updating logo to proper size from natural dimensions:', logoImage.naturalWidth, 'x', logoImage.naturalHeight);
+        
+        // Use proper sizing instead of natural dimensions
+        const { width: logoWidth, height: logoHeight } = calculateLogoSize(logoImage.naturalWidth, logoImage.naturalHeight);
+        
+        setComposition(prev => ({
+          ...prev,
+          assets: prev.assets.map(asset => 
+            asset.id === logoAsset.id 
+              ? { ...asset, size: { width: logoWidth, height: logoHeight } }
+              : asset
+          ),
+          lastModified: new Date()
+        }));
+      }
+    }
+  }, [logoImage, composition.assets]);
+
   // Handle resize
-  const handleResizeStart = (e: React.MouseEvent, handle: string) => {
+  // DIRECT resize function that works immediately
+  const handleCornerResize = (e: React.MouseEvent, handle: string) => {
     e.stopPropagation();
-    if (!editorState.selectedAssetId) return;
+    e.preventDefault();
+    
+    console.log(`🔄 Resize started: ${handle} handle clicked`);
+    
+    if (!editorState.selectedAssetId) {
+      console.log('❌ No selected asset');
+      return;
+    }
 
     const selectedAsset = composition.assets.find(a => a.id === editorState.selectedAssetId);
-    if (!selectedAsset) return;
+    if (!selectedAsset) {
+      console.log('❌ Selected asset not found');
+      return;
+    }
 
+    console.log(`✅ Starting resize: ${handle} handle on ${selectedAsset.type} asset (${selectedAsset.size.width}x${selectedAsset.size.height})`);
+
+    // Set resize state to prevent dragging
     setIsResizing(true);
     setResizeHandle(handle);
     setInitialResizeData({
@@ -800,9 +973,21 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       startWidth: selectedAsset.size.width,
       startHeight: selectedAsset.size.height,
       startPosX: selectedAsset.position.x,
-      startPosY: selectedAsset.position.y
+      startPosY: selectedAsset.position.y,
+      isLogo: selectedAsset.type === 'logo'
     });
+    
+    // Update editor state to indicate resizing
+    setEditorState(prev => ({
+      ...prev,
+      isResizing: true,
+      isDragging: false // Make sure dragging is disabled during resize
+    }));
+    
+    console.log(`🎯 Resize initialized: startMouse=(${e.clientX}, ${e.clientY}), startSize=${selectedAsset.size.width}x${selectedAsset.size.height}`);
   };
+
+
 
   // Mouse events
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -835,22 +1020,32 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         return;
       }
 
+      // Just select the asset, don't start dragging immediately
       setEditorState(prev => ({
         ...prev,
         selectedAssetId: clickedAsset.id,
-        isDragging: true,
+        isDragging: false, // Don't start dragging on click
         dragOffset: { x: x - clickedAsset.position.x, y: y - clickedAsset.position.y }
       }));
       
-      // Update mini toolbar position - position it beside the selected asset
+      // Save initial mouse position for drag threshold
+      setDragStartPosition({ x: e.clientX, y: e.clientY });
+      setIsDragReady(true);
+      
+      // Update mini toolbar position
       const canvasRect = canvas.getBoundingClientRect();
       setMiniToolbarPosition({
         x: canvasRect.left + (clickedAsset.position.x + clickedAsset.size.width + 10) * (canvasRect.width / canvas.width),
         y: canvasRect.top + (clickedAsset.position.y + clickedAsset.size.height / 2) * (canvasRect.height / canvas.height)
       });
+      
+      console.log(`Asset selected: ${clickedAsset.type}, starting drag mode`);
     } else {
+      // Clicking on empty space clears selection
       setEditorState(prev => ({ ...prev, selectedAssetId: null, isDragging: false }));
       setMiniToolbarPosition(null);
+      setDragStartPosition(null);
+      setIsDragReady(false);
     }
   };
 
@@ -864,68 +1059,63 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
 
-      if (editorState.isDragging && editorState.selectedAssetId) {
-        const x = (e.clientX - rect.left) * scaleX;
-        const y = (e.clientY - rect.top) * scaleY;
-
-        updateComposition(prev => ({
-      ...prev,
-      assets: prev.assets.map(asset => 
-        asset.id === editorState.selectedAssetId
-          ? {
-              ...asset,
-              position: {
-                x: Math.max(0, Math.min(prev.canvasSize.width - asset.size.width, x - editorState.dragOffset.x)),
-                y: Math.max(0, Math.min(prev.canvasSize.height - asset.size.height, y - editorState.dragOffset.y))
-              }
-            }
-          : asset
-      ),
-      lastModified: new Date()
-    }));
-
-        // Update mini toolbar position
-        const selectedAsset = composition.assets.find(a => a.id === editorState.selectedAssetId);
-        if (selectedAsset) {
-          setMiniToolbarPosition({
-            x: rect.left + (selectedAsset.position.x + selectedAsset.size.width / 2) * (rect.width / canvas.width),
-            y: rect.top + (selectedAsset.position.y - 50) * (rect.height / canvas.height)
-          });
-        }
-      }
-
-      if (isResizing && editorState.selectedAssetId && initialResizeData) {
+      // Handle resizing - prioritize resize over drag
+      if (isResizing && editorState.selectedAssetId && initialResizeData && resizeHandle) {
         const deltaX = e.clientX - initialResizeData.startX;
         const deltaY = e.clientY - initialResizeData.startY;
+        
+        console.log(`🔄 Resizing: handle=${resizeHandle}, delta=(${deltaX}, ${deltaY})`);
 
         let newWidth = initialResizeData.startWidth;
         let newHeight = initialResizeData.startHeight;
         let newX = initialResizeData.startPosX;
         let newY = initialResizeData.startPosY;
 
+        // Get selected asset info
+        const selectedAsset = composition.assets.find(a => a.id === editorState.selectedAssetId);
+        const isLogo = selectedAsset?.type === 'logo';
+        
+        // Calculate new dimensions based on handle
         switch (resizeHandle) {
-          case 'se':
+          case 'se': // Southeast - grow from top-left
             newWidth = Math.max(20, initialResizeData.startWidth + deltaX);
             newHeight = Math.max(20, initialResizeData.startHeight + deltaY);
             break;
-          case 'sw':
+          case 'sw': // Southwest - grow from top-right
             newWidth = Math.max(20, initialResizeData.startWidth - deltaX);
             newHeight = Math.max(20, initialResizeData.startHeight + deltaY);
-            newX = initialResizeData.startPosX + deltaX;
+            newX = initialResizeData.startPosX + (initialResizeData.startWidth - newWidth);
             break;
-          case 'ne':
+          case 'ne': // Northeast - grow from bottom-left
             newWidth = Math.max(20, initialResizeData.startWidth + deltaX);
             newHeight = Math.max(20, initialResizeData.startHeight - deltaY);
-            newY = initialResizeData.startPosY + deltaY;
+            newY = initialResizeData.startPosY + (initialResizeData.startHeight - newHeight);
             break;
-          case 'nw':
+          case 'nw': // Northwest - grow from bottom-right
             newWidth = Math.max(20, initialResizeData.startWidth - deltaX);
             newHeight = Math.max(20, initialResizeData.startHeight - deltaY);
-            newX = initialResizeData.startPosX + deltaX;
-            newY = initialResizeData.startPosY + deltaY;
+            newX = initialResizeData.startPosX + (initialResizeData.startWidth - newWidth);
+            newY = initialResizeData.startPosY + (initialResizeData.startHeight - newHeight);
             break;
         }
 
+        // For logos, maintain aspect ratio
+        if (isLogo) {
+          const aspectRatio = initialResizeData.startWidth / initialResizeData.startHeight;
+          const scale = newWidth / initialResizeData.startWidth;
+          
+          // Recalculate height to maintain aspect ratio
+          newHeight = Math.max(20, initialResizeData.startHeight * scale);
+          
+          // Adjust Y position for top handles
+          if (resizeHandle === 'ne' || resizeHandle === 'nw') {
+            newY = initialResizeData.startPosY + (initialResizeData.startHeight - newHeight);
+          }
+          
+          console.log(`📐 Logo proportional resize: scale=${scale.toFixed(2)}, newSize=${Math.round(newWidth)}x${Math.round(newHeight)}`);
+        }
+
+        // Apply the resize
         updateComposition(prev => ({
       ...prev,
           assets: prev.assets.map(asset => 
@@ -939,17 +1129,94 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           ),
           lastModified: new Date()
         }));
+        
+        return; // Don't handle dragging when resizing
+      }
+
+      // Handle drag threshold - only start dragging if mouse moves enough
+      if (isDragReady && dragStartPosition && editorState.selectedAssetId && !isResizing) {
+        const dragDistance = Math.sqrt(
+          Math.pow(e.clientX - dragStartPosition.x, 2) + 
+          Math.pow(e.clientY - dragStartPosition.y, 2)
+        );
+        
+        // Start dragging only if mouse moves more than 5 pixels
+        if (dragDistance > 5 && !editorState.isDragging) {
+          setEditorState(prev => ({
+            ...prev,
+            isDragging: true
+          }));
+          setIsDragReady(false); // Clear drag ready state
+        }
+      }
+
+      // Handle dragging (only if not resizing)
+      if (editorState.isDragging && editorState.selectedAssetId && !isResizing) {
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+
+        // Calculate raw position
+        const rawX = x - editorState.dragOffset.x;
+        const rawY = y - editorState.dragOffset.y;
+
+        // Find the dragged asset to calculate alignment guides
+        const draggedAsset = composition.assets.find(a => a.id === editorState.selectedAssetId);
+        if (draggedAsset) {
+          // Calculate alignment guides and snapped position
+          const { guides, snappedX, snappedY } = calculateAlignmentGuides(draggedAsset, rawX, rawY);
+          
+          // Update alignment guides state
+          setAlignmentGuides(guides);
+          
+          // Apply canvas bounds constraints to snapped position
+          const constrainedX = Math.max(0, Math.min(composition.canvasSize.width - draggedAsset.size.width, snappedX));
+          const constrainedY = Math.max(0, Math.min(composition.canvasSize.height - draggedAsset.size.height, snappedY));
+
+          updateComposition(prev => ({
+            ...prev,
+            assets: prev.assets.map(asset => 
+              asset.id === editorState.selectedAssetId
+                ? {
+                    ...asset,
+                    position: {
+                      x: constrainedX,
+                      y: constrainedY
+                    }
+                  }
+                : asset
+            ),
+            lastModified: new Date()
+          }));
+
+          // Update mini toolbar position
+          setMiniToolbarPosition({
+            x: rect.left + (constrainedX + draggedAsset.size.width / 2) * (rect.width / canvas.width),
+            y: rect.top + (constrainedY - 50) * (rect.height / canvas.height)
+          });
+        }
       }
     };
 
     const handleGlobalMouseUp = () => {
+      console.log(`🔚 Mouse up - was dragging: ${editorState.isDragging}, was resizing: ${isResizing}`);
+      
+      if (isResizing) {
+        console.log(`✅ Resize completed`);
+      }
+      
+      // Clear all interaction states
       setEditorState(prev => ({ ...prev, isDragging: false, isResizing: false }));
       setIsResizing(false);
       setResizeHandle(null);
       setInitialResizeData(null);
+      setDragStartPosition(null);
+      setIsDragReady(false);
+      
+      // Clear alignment guides
+      setAlignmentGuides([]);
     };
 
-    if (editorState.isDragging || isResizing) {
+    if (editorState.isDragging || isResizing || isDragReady) {
       document.addEventListener('mousemove', handleGlobalMouseMove);
       document.addEventListener('mouseup', handleGlobalMouseUp);
     }
@@ -958,7 +1225,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [editorState.isDragging, editorState.selectedAssetId, editorState.dragOffset, isResizing, resizeHandle, initialResizeData, updateComposition, composition.assets]);
+  }, [editorState.isDragging, editorState.selectedAssetId, editorState.dragOffset, isResizing, resizeHandle, initialResizeData, isDragReady, dragStartPosition, updateComposition, composition.assets]);
 
   // Asset management
   const updateAsset = (assetId: string, updates: Partial<BannerAsset>) => {
@@ -998,227 +1265,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     }));
   };
 
-    // Export functionality with CORS-safe approach
-  const exportComposition = async (format: 'png' | 'jpg' = 'png') => {
-    const canvas = canvasRef.current;
-    if (!canvas) {
-      toast({
-        title: "Error al exportar",
-        description: "Canvas no disponible",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      // First, ensure the canvas is fully rendered
-      renderCanvas();
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Always try direct export first (like right-click save)
-      console.log('Attempting direct canvas export...');
-      
-      try {
-        const success = await new Promise<boolean>((resolve) => {
-          canvas.toBlob((blob) => {
-            if (blob) {
-              console.log('Canvas export successful using toBlob - matches right-click save');
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement('a');
-              link.download = `${partnerName}_banner_${Date.now()}.${format}`;
-              link.href = url;
-              
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-              
-              // Clean up the object URL
-              URL.revokeObjectURL(url);
-
-              toast({
-                title: "Banner exportado",
-                description: `Banner descargado como ${format.toUpperCase()} con fondo completo`,
-              });
-              resolve(true);
-            } else {
-              console.log('Canvas toBlob returned null');
-              resolve(false);
-            }
-          }, `image/${format === 'jpg' ? 'jpeg' : 'png'}`, 0.95);
-        });
-        
-        if (success) {
-          return;
-        }
-      } catch (exportError) {
-        console.warn('Direct canvas export failed (canvas is tainted):', exportError);
-      }
-      
-      // If toBlob failed, fall back to clean canvas approach
-      console.log('Creating clean export canvas with brand background');
-      
-      // Create a completely clean canvas with safe elements only
-      const exportCanvas = document.createElement('canvas');
-      const exportCtx = exportCanvas.getContext('2d');
-      
-      if (!exportCtx) {
-        throw new Error('Could not create export canvas context');
-      }
-
-      // Set canvas dimensions
-      exportCanvas.width = composition.canvasSize.width;
-      exportCanvas.height = composition.canvasSize.height;
-
-      // Create a professional gradient background using brand colors
-      const gradient = exportCtx.createLinearGradient(0, 0, exportCanvas.width, exportCanvas.height);
-      gradient.addColorStop(0, brandGuidelines.secondaryColor || '#E9DEFF');
-      gradient.addColorStop(0.6, brandGuidelines.mainColor || '#8A47F5');
-      gradient.addColorStop(1, '#4C1D95'); // Darker shade for depth
-      exportCtx.fillStyle = gradient;
-      exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-      // Add subtle pattern overlay for visual interest
-      exportCtx.fillStyle = 'rgba(255, 255, 255, 0.05)';
-      for (let i = 0; i < exportCanvas.width; i += 40) {
-        for (let j = 0; j < exportCanvas.height; j += 40) {
-          exportCtx.fillRect(i, j, 20, 20);
-        }
-      }
-
-      // Add a soft overlay to ensure text readability
-      exportCtx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-      exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-      // Draw all assets
-      for (const asset of composition.assets) {
-        if (editingText === asset.id) continue;
-
-        exportCtx.save();
-        exportCtx.translate(asset.position.x + asset.size.width / 2, asset.position.y + asset.size.height / 2);
-        exportCtx.rotate((asset.rotation * Math.PI) / 180);
-        exportCtx.translate(-asset.size.width / 2, -asset.size.height / 2);
-
-        if (asset.type === 'text' && asset.text) {
-          // Draw text
-          exportCtx.font = `${asset.fontWeight} ${asset.fontSize}px ${asset.fontFamily}`;
-          exportCtx.fillStyle = asset.color || '#000000';
-          exportCtx.textAlign = asset.textAlign as CanvasTextAlign || 'left';
-          exportCtx.textBaseline = 'middle';
-          
-          const lines = asset.text.split('\n');
-          const lineHeight = asset.fontSize! * 1.2;
-          
-          lines.forEach((line, index) => {
-            const y = (asset.size.height / 2) + (index - (lines.length - 1) / 2) * lineHeight;
-            let x = 0;
-            
-            switch (asset.textAlign) {
-              case 'center': x = asset.size.width / 2; break;
-              case 'right': x = asset.size.width; break;
-              default: x = 0;
-            }
-            
-            exportCtx.fillText(line, x, y);
-          });
-        } else if (asset.type === 'cta' && asset.text) {
-          // Draw CTA button
-          const borderRadius = asset.borderRadius || 24;
-          
-          const drawRoundedRect = (x: number, y: number, width: number, height: number, radius: number) => {
-            exportCtx.beginPath();
-            exportCtx.moveTo(x + radius, y);
-            exportCtx.lineTo(x + width - radius, y);
-            exportCtx.quadraticCurveTo(x + width, y, x + width, y + radius);
-            exportCtx.lineTo(x + width, y + height - radius);
-            exportCtx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-            exportCtx.lineTo(x + radius, y + height);
-            exportCtx.quadraticCurveTo(x, y + height, x, y + height - radius);
-            exportCtx.lineTo(x, y + radius);
-            exportCtx.quadraticCurveTo(x, y, x + radius, y);
-            exportCtx.closePath();
-          };
-
-          // Draw button background
-          if (asset.backgroundColor) {
-            exportCtx.fillStyle = asset.backgroundColor;
-            drawRoundedRect(0, 0, asset.size.width, asset.size.height, borderRadius);
-            exportCtx.fill();
-          }
-
-          // Draw button border
-          if (asset.borderColor) {
-            exportCtx.strokeStyle = asset.borderColor;
-            exportCtx.lineWidth = asset.borderWidth || 2;
-            drawRoundedRect(0, 0, asset.size.width, asset.size.height, borderRadius);
-            exportCtx.stroke();
-          }
-
-          // Draw button text
-          exportCtx.font = `${asset.fontWeight} ${asset.fontSize}px ${asset.fontFamily}`;
-          exportCtx.fillStyle = asset.color || '#000000';
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'middle';
-          
-          const lines = asset.text.split('\n');
-          const lineHeight = asset.fontSize! * 1.2;
-          
-          lines.forEach((line, index) => {
-            const y = (asset.size.height / 2) + (index - (lines.length - 1) / 2) * lineHeight;
-            exportCtx.fillText(line, asset.size.width / 2, y);
-          });
-        } else if (asset.type === 'logo') {
-          // Draw professional logo placeholder
-          exportCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-          exportCtx.fillRect(0, 0, asset.size.width, asset.size.height);
-          
-          // Add subtle border
-          exportCtx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-          exportCtx.lineWidth = 2;
-          exportCtx.strokeRect(1, 1, asset.size.width - 2, asset.size.height - 2);
-          
-          // Draw logo text
-          exportCtx.fillStyle = brandGuidelines.mainColor || '#8A47F5';
-          exportCtx.font = 'bold 16px Arial';
-          exportCtx.textAlign = 'center';
-          exportCtx.textBaseline = 'middle';
-          exportCtx.fillText(partnerName.toUpperCase(), asset.size.width / 2, asset.size.height / 2);
-        }
-
-        exportCtx.restore();
-      }
-
-      // Export the canvas
-      const exportMimeType = format === 'jpg' ? 'image/jpeg' : 'image/png';
-      const dataUrl = exportCanvas.toDataURL(exportMimeType, 0.95);
-      
-      if (dataUrl === 'data:,' || dataUrl.length < 100) {
-        throw new Error('Canvas appears to be empty');
-      }
-      
-      const link = document.createElement('a');
-      link.download = `${partnerName}_banner_${Date.now()}.${format}`;
-      link.href = dataUrl;
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "Banner exportado",
-        description: `Banner descargado como ${format.toUpperCase()} con fondo de marca`,
-      });
-
-    } catch (error) {
-      console.error('Export failed:', error);
-      toast({
-        title: "Error al exportar",
-        description: "No se pudo exportar el banner. Intenta de nuevo.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const selectedAsset = composition.assets.find(asset => asset.id === editorState.selectedAssetId);
+    const selectedAsset = composition.assets.find(asset => asset.id === editorState.selectedAssetId);
   const editingAsset = editingText ? composition.assets.find(asset => asset.id === editingText) : null;
 
   // Show loading state while banner data is being fetched
@@ -1234,7 +1281,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
+    <div className="min-h-screen flex flex-col bg-gray-50 relative z-10">
         {/* Header */}
       <div className="bg-white border-b border-gray-200 p-3">
         <div className="flex items-center justify-between">
@@ -1263,14 +1310,6 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         
         <Separator orientation="vertical" className="h-6" />
         
-        <Button onClick={() => exportComposition('png')} variant="outline" className="rounded-full">
-          <Download className="w-4 h-4 mr-2" />
-          Descargar PNG
-        </Button>
-        <Button onClick={() => exportComposition('jpg')} variant="outline" className="rounded-full">
-          <Download className="w-4 h-4 mr-2" />
-          Descargar JPG
-        </Button>
         <Button onClick={saveComposition} className="rounded-full" variant={hasUnsavedChanges ? "default" : "outline"}>
           <Save className="w-4 h-4 mr-2" />
           {hasUnsavedChanges ? "Guardar Cambios" : "Guardado"}
@@ -1583,7 +1622,9 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                 ref={canvasRef}
                 onMouseDown={handleMouseDown}
               className={`rounded-lg ${
-                editorState.isDragging ? 'cursor-grabbing' : 'cursor-pointer'
+                editorState.isDragging ? 'cursor-grabbing' : 
+                isResizing ? 'cursor-auto' :
+                'cursor-pointer'
               }`}
                 style={{ 
                 display: 'block',
@@ -1593,6 +1634,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                 height: 'auto'
               }}
             />
+
             
             {/* Text editing overlay */}
             {editingText && editingAsset && (
@@ -1605,14 +1647,17 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                   height: editingAsset.size.height,
                 }}
               >
-                <input
+                <textarea
                   ref={textInputRef}
-                  type="text"
                   value={textEditValue}
                   onChange={(e) => setTextEditValue(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
                       finishTextEditing();
+                    } else if (e.key === 'Enter' && e.shiftKey) {
+                      // Allow Shift+Enter to create line breaks
+                      // The default behavior will insert a newline
                     } else if (e.key === 'Escape') {
                       setEditingText(null);
                       setTextEditValue('');
@@ -1626,48 +1671,92 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                     fontWeight: editingAsset.fontWeight,
                     textAlign: editingAsset.textAlign as any
                   }}
-                  placeholder="Escribe tu texto..."
+                  placeholder="Escribe tu texto... (Shift+Enter para nueva línea)"
                 />
               </div>
             )}
 
-                        {/* Resize handles - aligned with selection border */}
-            {selectedAsset && !editingText && (
-              <>
-                <div 
-                  className="absolute w-3 h-3 bg-white border-2 border-blue-500 rounded-full cursor-nw-resize pointer-events-auto hover:bg-blue-50" 
+            {/* Resize handles - positioned with proper scaling */}
+            {selectedAsset && !editingText && (() => {
+              const canvas = canvasRef.current;
+              if (!canvas) {
+                console.log('❌ Canvas not found for resize handles');
+                return null;
+              }
+              
+              const rect = canvas.getBoundingClientRect();
+              const scaleX = rect.width / canvas.width;
+              const scaleY = rect.height / canvas.height;
+              
+              // Convert canvas coordinates to display coordinates
+              const displayX = selectedAsset.position.x * scaleX;
+              const displayY = selectedAsset.position.y * scaleY;
+              const displayWidth = selectedAsset.size.width * scaleX;
+              const displayHeight = selectedAsset.size.height * scaleY;
+              
+              console.log(`🎯 Rendering resize handles for ${selectedAsset.type} at display pos (${displayX}, ${displayY}) size ${displayWidth}x${displayHeight}`);
+              
+              return (
+                <>
+                  {/* Northwest handle */}
+                  <div 
+                    className="absolute w-3 h-3 bg-blue-600 border border-white rounded-full cursor-nw-resize shadow-md z-20" 
                   style={{ 
-                    left: selectedAsset.position.x - 2 - 6, 
-                    top: selectedAsset.position.y - 2 - 6 
-                  }}
-                  onMouseDown={(e) => handleResizeStart(e, 'nw')}
-                />
-                <div 
-                  className="absolute w-3 h-3 bg-white border-2 border-blue-500 rounded-full cursor-ne-resize pointer-events-auto hover:bg-blue-50" 
+                      left: displayX - 6, 
+                      top: displayY - 6,
+                      pointerEvents: 'all'
+                    }}
+                    onMouseDown={(e) => {
+                      console.log('🟦 NW handle clicked!');
+                      handleCornerResize(e, 'nw');
+                    }}
+                    title="Drag to resize"
+                  />
+                  {/* Northeast handle */}
+                  <div 
+                    className="absolute w-3 h-3 bg-blue-600 border border-white rounded-full cursor-ne-resize shadow-md z-20" 
                   style={{ 
-                    left: selectedAsset.position.x + selectedAsset.size.width + 2 - 6, 
-                    top: selectedAsset.position.y - 2 - 6 
-                  }}
-                  onMouseDown={(e) => handleResizeStart(e, 'ne')}
-                />
-                <div 
-                  className="absolute w-3 h-3 bg-white border-2 border-blue-500 rounded-full cursor-sw-resize pointer-events-auto hover:bg-blue-50" 
+                      left: displayX + displayWidth - 6, 
+                      top: displayY - 6,
+                      pointerEvents: 'all'
+                    }}
+                    onMouseDown={(e) => {
+                      console.log('🟦 NE handle clicked!');
+                      handleCornerResize(e, 'ne');
+                    }}
+                    title="Drag to resize"
+                  />
+                  {/* Southwest handle */}
+                  <div 
+                    className="absolute w-3 h-3 bg-blue-600 border border-white rounded-full cursor-sw-resize shadow-md z-20" 
                   style={{ 
-                    left: selectedAsset.position.x - 2 - 6, 
-                    top: selectedAsset.position.y + selectedAsset.size.height + 2 - 6 
-                  }}
-                  onMouseDown={(e) => handleResizeStart(e, 'sw')}
-                />
-                <div 
-                  className="absolute w-3 h-3 bg-white border-2 border-blue-500 rounded-full cursor-se-resize pointer-events-auto hover:bg-blue-50" 
+                      left: displayX - 6, 
+                      top: displayY + displayHeight - 6,
+                      pointerEvents: 'all'
+                    }}
+                    onMouseDown={(e) => {
+                      console.log('🟦 SW handle clicked!');
+                      handleCornerResize(e, 'sw');
+                    }}
+                    title="Drag to resize"
+                  />
+                  {/* Southeast handle */}
+                  <div 
+                    className="absolute w-3 h-3 bg-blue-600 border border-white rounded-full cursor-se-resize shadow-md z-20" 
                   style={{ 
-                    left: selectedAsset.position.x + selectedAsset.size.width + 2 - 6, 
-                    top: selectedAsset.position.y + selectedAsset.size.height + 2 - 6 
-                  }}
-                  onMouseDown={(e) => handleResizeStart(e, 'se')}
+                      left: displayX + displayWidth - 6, 
+                      top: displayY + displayHeight - 6,
+                      pointerEvents: 'all'
+                    }}
+                    onMouseDown={(e) => {
+                      console.log('🟦 SE handle clicked!');
+                      handleCornerResize(e, 'se');
+                    }}
+                    title="Drag to resize"
                 />
               </>
-            )}
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -1692,6 +1781,25 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           <Button variant="ghost" size="sm" onClick={() => deleteAsset(selectedAsset.id)} title="Eliminar">
             <Trash2 className="w-4 h-4" />
           </Button>
+        </div>
+      )}
+
+      {/* Usage Instructions - Show when asset is selected */}
+      {selectedAsset && !editingText && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black bg-opacity-80 text-white text-sm px-4 py-2 rounded-lg shadow-lg">
+          <div className="flex items-center space-x-4">
+            <span className="flex items-center">
+              <div className="w-3 h-3 bg-blue-600 border border-white rounded-full mr-2"></div>
+              {selectedAsset.type === 'logo' 
+                ? 'Arrastra las esquinas azules para redimensionar proporcionalmente' 
+                : 'Arrastra las esquinas azules para redimensionar'}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="flex items-center">
+              <div className="w-4 h-2 border-2 border-blue-500 mr-2"></div>
+              Arrastra el elemento para mover
+            </span>
+          </div>
         </div>
       )}
     </div>

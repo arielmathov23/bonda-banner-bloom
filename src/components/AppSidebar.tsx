@@ -37,7 +37,7 @@ const menuItems = [
 
 export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps) {
   return (
-    <Sidebar className="border-r border-brand-100 w-64 h-screen fixed" collapsible="none">
+    <Sidebar className="border-r border-brand-100 w-64 h-screen fixed z-50" collapsible="none">
       <SidebarContent className="bg-white flex flex-col h-screen">
         {/* Sidebar Header */}
         <div className="p-4 border-b border-gray-100 flex-shrink-0">
@@ -54,12 +54,15 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
         {/* Create Banner - Main Action */}
         <div className="p-4 flex-shrink-0">
           <Button
-            onClick={() => setActiveSection('create-banner')}
+            onClick={() => {
+              console.log('Crear un Banner clicked, current activeSection:', activeSection);
+              setActiveSection('create-banner');
+            }}
             className={`w-full justify-start px-4 py-3 text-left ${
               activeSection === 'create-banner'
                 ? 'bg-violet-600 hover:bg-violet-700 text-white shadow-lg'
                 : 'bg-violet-500 hover:bg-violet-600 text-white shadow-md'
-            } transition-all duration-200`}
+            } transition-all duration-200 relative z-50`}
           >
             <Wand2 className="w-5 h-5 mr-3" />
             <span className="font-medium">Crear un Banner</span>

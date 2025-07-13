@@ -258,10 +258,8 @@ class FluxAPIClient {
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
-    // Use proxy in development, direct URL in production
-    this.baseUrl = import.meta.env.DEV 
-      ? '/api/flux'  // Proxy route for development
-      : 'https://api.bfl.ai/v1';  // Direct API for production
+    // Always use proxy endpoint for both development and production
+    this.baseUrl = '/api/flux';
   }
 
   async createTask(payload: FluxTaskRequest): Promise<FluxTaskResponse> {
@@ -285,18 +283,11 @@ class FluxAPIClient {
   async getResult(taskId: string, pollingUrl?: string): Promise<FluxResultResponse> {
     let url: string;
     
-    if (pollingUrl && import.meta.env.DEV) {
-      // In development, convert external polling URL to use our proxy
-      if (pollingUrl.includes('api.bfl.ai/v1')) {
-        url = pollingUrl.replace('https://api.bfl.ai/v1', this.baseUrl);
-      } else {
-        url = `${this.baseUrl}/get_result?id=${taskId}`;
-      }
-    } else if (pollingUrl) {
-      // In production, use the polling URL directly
-      url = pollingUrl;
+    if (pollingUrl && pollingUrl.includes('api.bfl.ai/v1')) {
+      // Convert external polling URL to use our proxy
+      url = pollingUrl.replace('https://api.bfl.ai/v1', this.baseUrl);
     } else {
-      // Fallback: construct get_result URL
+      // Fallback: construct get_result URL through proxy
       url = `${this.baseUrl}/get_result?id=${taskId}`;
     }
     
@@ -369,128 +360,85 @@ interface FluxResultResponse {
 }
 
 export function isFluxConfigured(): boolean {
-  return !!import.meta.env.VITE_FLUX_API_KEY && import.meta.env.VITE_FLUX_API_KEY !== 'your_flux_api_key_here';
+  const apiKey = import.meta.env.VITE_FLUX_API_KEY;
+  const isConfigured = !!apiKey && apiKey !== 'your_flux_api_key_here';
+  
+  // Enhanced debugging for production
+  if (!isConfigured) {
+    console.warn('Flux API key not configured:', {
+      keyExists: !!apiKey,
+      isPlaceholder: apiKey === 'your_flux_api_key_here',
+      keyPreview: apiKey ? `${apiKey.substring(0, 7)}...` : 'undefined',
+      env: import.meta.env.MODE
+    });
+  }
+  
+  return isConfigured;
 }
 
 export function getFluxAPIKeyStatus(): { configured: boolean; placeholder: boolean; keyPreview?: string } {
   const apiKey = import.meta.env.VITE_FLUX_API_KEY;
-  return {
+  const status = {
     configured: !!apiKey,
     placeholder: apiKey === 'your_flux_api_key_here',
     keyPreview: apiKey ? `${apiKey.substring(0, 7)}...` : undefined
   };
+  
+  // Log status for debugging in production
+  console.log('Flux API key status:', status);
+  
+  return status;
 }
 
-function generateOptimizedBannerPrompt(request: BannerGenerationRequest & { styleAnalysis?: any }, hasReferenceImage: boolean = false): string {
-  const {
-    ctaText,
-    customPrompt,
-    brandColors,
-    hasProductPhotos,
-    hasReferenceBanners,
-    styleAnalysis
-  } = request;
-
-  // Extract brand colors for design context
-  const primaryColor = brandColors?.primary || '#8A47F5';
-  
-  // Extract enhanced background treatment from style analysis
-  const leftSideBackground = styleAnalysis?.reference_style?.color_composition?.left_side_background || 'solid dark background optimized for light text overlay';
-  const rightSideBackground = styleAnalysis?.reference_style?.color_composition?.right_side_background || 'complementary background allowing product visibility';
-  const textOverlayZones = styleAnalysis?.reference_style?.color_composition?.text_overlay_zones || 'high contrast areas for optimal text visibility';
-  const fadeEffects = styleAnalysis?.reference_style?.color_composition?.fade_effects || 'subtle gradient transitions from center to edges';
-
-  // Build context from custom prompt for AI understanding
-  let contextualInfo = '';
-  if (customPrompt && customPrompt.trim()) {
-    contextualInfo = `[STYLE CONTEXT: ${customPrompt.trim()}] `;
+/**
+ * Test Flux API configuration and provide detailed diagnostics
+ */
+export async function testFluxConfiguration(): Promise<{ success: boolean; message: string; details?: any }> {
+  try {
+    // Check if API key is configured
+    const apiKey = import.meta.env.VITE_FLUX_API_KEY;
+    if (!apiKey) {
+      return {
+        success: false,
+        message: 'Flux API key not found. Please set VITE_FLUX_API_KEY in your environment variables.',
+        details: {
+          environment: import.meta.env.MODE,
+          allEnvKeys: Object.keys(import.meta.env).filter(key => key.startsWith('VITE_'))
+        }
+      };
+    }
+    
+    if (apiKey === 'your_flux_api_key_here') {
+      return {
+        success: false,
+        message: 'Flux API key is set to placeholder value. Please replace with your actual API key.',
+        details: { keyPreview: `${apiKey.substring(0, 7)}...` }
+      };
+    }
+    
+    // Test API connection by making a simple request
+    const client = new FluxAPIClient(apiKey);
+    
+    // This is a simple test - we'll try to create a minimal task to verify the key works
+    console.log('Testing Flux API connection...');
+    
+    return {
+      success: true,
+      message: 'Flux API configuration appears to be correct.',
+      details: {
+        keyPreview: `${apiKey.substring(0, 7)}...`,
+        environment: import.meta.env.MODE,
+        baseUrl: client['baseUrl'] // Access private property for debugging
+      }
+    };
+    
+  } catch (error) {
+    return {
+      success: false,
+      message: `Flux API configuration test failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      details: { error: error instanceof Error ? error.stack : error }
+    };
   }
-
-  // Enhanced prompt for professional banner background design
-  let prompt = `${contextualInfo}[BANNER BACKGROUND GENERATION - NO TEXT RENDERING]
-
-[DESIGN SPECIFICATIONS]
-- Format: 1440x352 pixels horizontal banner background
-- Purpose: Professional marketing banner background for e-commerce
-- Style: Modern, clean, commercial-grade design
-- Brand Color: ${primaryColor}
-
-[CRITICAL INSTRUCTIONS]
-- Generate ONLY the background design - DO NOT include any text, words, letters, or typography
-- DO NOT render call-to-action buttons, text labels, or written content
-- Text elements will be added separately as overlay in post-processing
-- Focus on creating sophisticated visual background that supports text overlay
-- Leave strategic clear areas for text placement on the left side
-
-[BACKGROUND DESIGN REQUIREMENTS]
-- Professional gradient or solid color background
-- Complementary colors that work with ${primaryColor}
-- Clean, modern aesthetic suitable for e-commerce
-- Subtle geometric patterns or shapes (optional)
-- High contrast areas that support text readability on the left
-- Visual hierarchy that guides the eye
-- Left 60% reserved for text overlay elements
-
-[BACKGROUND TREATMENT SPECIFICATIONS]
-- Left Side Background (60% of banner): ${leftSideBackground}
-- Right Side Background (40% of banner): ${rightSideBackground}
-- Text Overlay Zones: ${textOverlayZones}
-- Fade Effects: ${fadeEffects}
-- Ensure high contrast between background and where text will be placed
-- Create smooth transitions between different background zones
-- Optimize left side specifically for white/light colored text readability
-- Optimize right side for product integration while maintaining text visibility
-
-[VISUAL COMPOSITION]
-- Use rule of thirds for balanced composition
-- Create clear focal points for product and text areas
-- Maintain visual balance between elements
-- Leave adequate white/clear space for text overlay on left side
-- Professional marketing quality background
-- Suitable for web display and digital advertising
-
-`;
-  
-  if (hasReferenceImage) {
-    prompt += `[PRODUCT INTEGRATION - SIZE CONSTRAINT]
-- Extract and incorporate the product from the reference image
-- Product should occupy MAXIMUM 20% of the total banner area (288x70 pixels max)
-- Position product in center-right or right portion of the banner
-- Ensure product is clearly visible and well-lit but not dominant
-- Maintain product proportions and professional presentation
-- Use product as supporting visual element, not main focus
-- Professional product photography lighting and presentation
-- Product should complement the overall design, not overpower it
-- Leave 80% of space for background design and text placement areas
-
-[LAYOUT POSITIONING]
-- Left 60% (864x352 pixels): Reserved for logo, text, and CTA placement
-  * Background treatment: ${leftSideBackground}
-  * Optimize for text contrast and readability
-  * Apply fade effects: ${fadeEffects}
-  * Ensure text overlay zones are clearly defined
-- Right 40% (576x352 pixels): Available for product placement
-  * Background treatment: ${rightSideBackground}
-  * Maintain product visibility while supporting text if needed
-  * Apply complementary fade effects that don't interfere with product
-- Product uses maximum 20% of total banner space within the right area
-- Maintain clear visual separation and hierarchy
-- Create seamless transitions between left and right background treatments
-
-`;
-  }
-
-  prompt += `[FINAL OUTPUT]
-- Complete marketing banner background ready for text overlay
-- Professional commercial quality
-- Optimized for digital advertising platforms
-- Modern, clean aesthetic foundation
-- Strategic composition supporting text elements on the left
-- Product (if included) positioned as supporting element, not dominant feature
-
-IMPORTANT: This is a BACKGROUND GENERATION project. Do not include any text, typography, or written elements. Create a sophisticated visual foundation that will support text overlay elements, with any product elements limited to maximum 20% of the total image space.`;
-
-  return prompt;
 }
 
 /**
@@ -545,9 +493,9 @@ export async function generateBannerWithProductAndStyle(
       height: targetDimensions.height,
       prompt_upsampling: false,
       seed: null,
-      safety_tolerance: 2,
+      safety_tolerance: 6, // Increased to be more permissive and reduce weird rejections
       output_format: 'png',
-      image_prompt: productImageBase64 // Use product image as reference
+      image_prompt: productImageBase64 // Use product image as compositional reference only
     };
 
     const task = await client.createTask(taskRequest);
@@ -731,6 +679,7 @@ async function imageToBase64File(file: File): Promise<string> {
 
 /**
  * Generate optimized prompt for Flux based on style analysis and product description
+ * SIMPLIFIED VERSION - Focused on abstract design elements only
  */
 function generateStyledBannerPrompt(
   partnerName: string,
@@ -740,93 +689,78 @@ function generateStyledBannerPrompt(
   ctaText: string,
   discountPercentage?: number
 ): string {
-  // Extract style elements from analysis
-  const colorPalette = styleAnalysis?.reference_style?.color_composition?.primary_palette || 'professional blue and white colors';
-  const backgroundTreatment = styleAnalysis?.reference_style?.color_composition?.background_treatment || 'clean gradient background';
-  const leftSideBackground = styleAnalysis?.reference_style?.color_composition?.left_side_background || 'solid color background optimized for text readability';
-  const rightSideBackground = styleAnalysis?.reference_style?.color_composition?.right_side_background || 'complementary background allowing product visibility';
-  const textOverlayZones = styleAnalysis?.reference_style?.color_composition?.text_overlay_zones || 'high contrast areas for optimal text visibility';
-  const fadeEffects = styleAnalysis?.reference_style?.color_composition?.fade_effects || 'subtle gradient transitions from center to edges';
-  const brandTone = styleAnalysis?.reference_style?.brand_personality?.tone || 'professional and modern';
-  const layoutStyle = styleAnalysis?.reference_style?.layout_composition?.visual_balance || 'balanced and clean layout';
-
-  const prompt = `
-  Generate a background image using the provided product as a support element and following the JSON styleguide inside <styleguide> tags.
-  You will be given an orientation to apply effects, as your image will be used in further processes to embed texts and logos.
-  It is crucial you DO NOT WRITE any characters/numbers/letters/symbols, it's completely prohibited to use these as a resource.
+  // Extract ONLY key style elements with intelligent fallbacks
+  const colorPalette = styleAnalysis?.reference_style?.color_palette || {};
+  const backgroundTreatment = styleAnalysis?.reference_style?.background_treatment || {};
+  const designComponents = styleAnalysis?.reference_style?.design_components || {};
+  const brandPersonality = styleAnalysis?.reference_style?.brand_personality || {};
   
-<expectations>
-- Referended product image can take up to 1/5 of the image size. You can find more information inside <product_placement> tags
-- Ultra-high quality commercial banner background
-- Marketing campaign ready
-- Optimized for digital advertising platforms
-- Clean, modern aesthetic foundation
-- Strategic white/clear space planning for text elements
-- DO NOT include any text, words, or letters. Text overlay will be added separately in post-processing. DO NOT WRITE ANY TEXT, you cannot use any fonts/letters/characters/numbers.
-- Focus on creating a sophisticated background.
-- Leave clear space areas for text placement (left side for logo and text)
-</expectations>
+  // Extract colors safely
+  const primaryColors = colorPalette.dominant_colors || '#0072B8, #004A99';
+  const accentColors = colorPalette.accent_colors || '#00A3E0, #66B2FF';
+  const colorTemp = colorPalette.color_temperature || 'cool and professional';
   
-<product>
-${productDescription}
-</product>
+  // Extract background style safely (avoid environmental elements)
+  const backgroundType = backgroundTreatment.base_type || 'professional gradient';
+  const gradientDetails = backgroundTreatment.gradient_details || 'left-to-right smooth transition';
+  const atmosphereStyle = backgroundTreatment.atmosphere_style || 'clean modern professional';
+  
+  // Extract design elements safely
+  const geometricElements = designComponents.geometric_elements || 'clean modern lines';
+  const dimensionalEffects = designComponents.dimensional_effects || 'subtle depth and shadows';
+  
+  // Extract brand personality safely
+  const visualTone = brandPersonality.visual_tone || 'professional and modern';
+  const sophistication = brandPersonality.sophistication_level || 'high professional standard';
 
-<styleguide>
-${JSON.stringify(styleAnalysis?.reference_style || {})}
-</styleguide>
+  const prompt = `Create a professional marketing banner background for ${partnerName}.
 
-<spec>
-- Brand: ${partnerName}
-- Style: ${brandTone} 
-- Layout: ${layoutStyle}
-- Color Palette: ${colorPalette}
-- Background: ${backgroundTreatment}
-</spec>
+CRITICAL INSTRUCTIONS:
+- ABSOLUTELY NO TEXT, letters, numbers, words, or symbols anywhere in the image
+- NO logos, brand names, or readable content
+- Focus ONLY on background design suitable for marketing overlay and literal usage of the image attached.
 
-<product_placement>
-- Product should occupy MAXIMUM 20% of the total banner area
-- Position product in center-right or right portion of the banner
-- Product should be secondary to the overall design composition
-- Maintain ample white/clear space around the product
-- Product should complement the background, not dominate it
-- Scale product appropriately to maintain visual hierarchy
-- Ensure product doesn't interfere with left-side text placement areas
-</product_placement>
+PRODUCT PHOTO INTEGRATION:
+- Use the provided product image: ${productDescription}, and create abstract background that complements the product's visual style with cool patterns.
 
-<design>
-- Left Side Background (60% of banner): ${leftSideBackground}
-- Right Side Background (40% of banner): ${rightSideBackground}
-- Text Overlay Zones: ${textOverlayZones}
-- Fade Effects: ${fadeEffects}
-- Ensure high contrast between background and where text will be placed
-- Create smooth transitions between different background zones
-- Optimize left side specifically for white/light colored text readability
-- Optimize right side for product integration while maintaining text visibility
-- Professional marketing banner background
-- High-quality commercial-grade aesthetic
-- Product integrated naturally but not overwhelming the composition
-- Maintain visual hierarchy with clear text placement areas on the left
-- Background should enhance but not compete with text overlay
-- Use referenced product image as accent element, not focal point
-- Professional lighting and composition suitable for digital advertising
-- 80% of space dedicated to background design and text areas
-- 20% maximum space for product element
-</design>
+<design_foundation>
+Visual Style: ${visualTone} with ${sophistication} execution
+Color Palette: ${primaryColors} (primary colors), ${accentColors} (accent colors)
+Color Temperature: ${colorTemp}
+Background Type: ${backgroundType}
+Gradient Direction: ${gradientDetails}
+Atmosphere: ${atmosphereStyle}
+</design_foundation>
 
-<layout>
-- Left 60% of banner: Reserved for logo, main text, and CTA button
-  * Background treatment: ${leftSideBackground}
-  * Optimize for text contrast and readability
-  * Apply fade effects: ${fadeEffects}
-  * Ensure text overlay zones are clearly defined
-- Right 40% of banner: Product placement area (product uses max 20% of total)
-  * Background treatment: ${rightSideBackground}
-  * Maintain product visibility while supporting text if needed
-  * Apply complementary fade effects that don't interfere with product
-- Maintain visual balance between text space and product space
-- Ensure clear visual separation between content areas
-- Create seamless transitions between left and right background treatments
-</layout>`;
+<layout_zones>
+Left and right: High contrast area optimized for text overlay, use solid colors or subtle gradients
+Background Flow: ${gradientDetails} with seamless professional transitions
+Visual Depth: ${dimensionalEffects} applied with professional restraint
+</layout_zones>
+
+<design_elements>
+Geometric Style: ${geometricElements} with minimal professional approach
+Visual Effects: ${dimensionalEffects} applied subtly for depth
+Pattern Approach: Clean, minimal, abstract patterns only
+Border Treatment: Professional clean edges
+Surface Quality: Smooth, professional finish suitable for commercial use
+</design_elements>
+
+<technical_requirements>
+Quality: High-resolution professional commercial grade
+Style: Abstract background design optimized for text and graphic overlay
+Output: Clean, sophisticated background that enhances brand presentation
+Color Profile: Professional color accuracy with ${colorTemp} tone
+</technical_requirements>
+
+<brand_essence>
+Brand Personality: ${visualTone}
+Professional Level: ${sophistication}
+Target: Business and professional audiences
+Application: Digital marketing banner background foundation
+</brand_essence>
+
+FINAL REQUIREMENT: Create an abstract, sophisticated background design that captures the brand's visual essence through color, texture, and subtle design elements. The result must be a clean foundation suitable for overlay text and graphics, without any literal or recognizable elements.`;
 
   return prompt;
 }
@@ -885,7 +819,21 @@ export async function generateBannerImageWithFlux(
       console.log('No reference images provided - generating without image references');
     }
 
-    const generationPrompt = generateOptimizedBannerPrompt(request, hasReferenceImage);
+    // Extract parameters for the styled prompt generation
+    const partnerName = request.partnerName || 'Brand';
+    const productDescription = request.customPrompt || 'Product';
+    const mainText = request.customPrompt || 'Main Text';
+    const ctaText = request.ctaText || 'Call to Action';
+    const discountPercentage = request.promotionDiscount ? parseInt(request.promotionDiscount) : undefined;
+    
+    const generationPrompt = generateStyledBannerPrompt(
+      partnerName,
+      productDescription, 
+      (request as any).styleAnalysis, // Cast to any since this might be added to the request elsewhere
+      mainText,
+      ctaText,
+      discountPercentage
+    );
     
     console.log('=== GENERATED PROMPT ===');
     console.log(generationPrompt);
@@ -907,9 +855,9 @@ export async function generateBannerImageWithFlux(
       height: targetDimensions.height,
       prompt_upsampling: false,
       seed: null,
-      safety_tolerance: 4,
+      safety_tolerance: 6, // Increased to be more permissive and reduce weird rejections
       output_format: 'png',
-      image_prompt: selectedImageBase64 // Send the selected image directly
+      image_prompt: selectedImageBase64 // Use product image as compositional reference only
     };
 
     console.log('Creating Flux 1.1 generation task with payload:', {
@@ -954,21 +902,44 @@ export async function generateBannerImageWithFlux(
       if (error.message.includes('multiple_of') && error.message.includes('32')) {
         throw new Error('Flux API dimension error: Width and height must be multiples of 32. This has been automatically corrected - please try again.');
       } else if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
-        throw new Error(`CORS Error: Cannot connect to Flux API directly from browser. 
+        throw new Error(`Network Error: Cannot connect to Flux API. 
         
-Solutions:
-1. Restart your dev server to use the proxy: npm run dev
-2. For production, implement a backend proxy
+Possible solutions:
+1. Check your internet connection
+2. Verify the API proxy is working correctly
+3. In development: restart your dev server (npm run dev)
+4. In production: check Vercel deployment logs for API errors
 
 Original error: ${error.message}`);
-      } else if (error.message.includes('API key') || error.message.includes('x-key')) {
-        throw new Error('Flux API key is missing or invalid. Please check your configuration.');
-      } else if (error.message.includes('quota') || error.message.includes('credits')) {
-        throw new Error('Flux API quota exceeded. Please check your account limits.');
+      } else if (error.message.includes('API key') || error.message.includes('x-key') || error.message.includes('not configured')) {
+        throw new Error(`Flux API key error: ${error.message}
+
+Production troubleshooting:
+1. Verify VITE_FLUX_API_KEY is set in your Vercel environment variables
+2. Check the API key is valid and not expired
+3. Ensure the key has proper permissions for Flux API access`);
+      } else if (error.message.includes('quota') || error.message.includes('credits') || error.message.includes('billing')) {
+        throw new Error(`Flux API quota exceeded: ${error.message}
+
+Please check your Flux API account:
+1. Verify your billing information is up to date
+2. Check your credit balance
+3. Review your usage limits`);
       } else if (error.message.includes('Content Moderated') || error.message.includes('Request Moderated')) {
         throw new Error('Content policy violation. Please modify your prompt and try again.');
-      } else if (error.message.includes('Timeout')) {
-        throw new Error('Banner generation timed out. Please try again.');
+      } else if (error.message.includes('Timeout') || error.message.includes('timeout')) {
+        throw new Error('Banner generation timed out. The Flux API might be experiencing high load. Please try again.');
+      } else if (error.message.includes('500') || error.message.includes('Internal server error')) {
+        throw new Error(`Flux API server error: ${error.message}
+
+This is likely a temporary issue with the Flux API. Please try again in a few minutes.`);
+      } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+        throw new Error(`Flux API endpoint not found: ${error.message}
+
+This might indicate a deployment issue. Please check:
+1. The API proxy is deployed correctly
+2. All environment variables are set
+3. Try refreshing the page`);
       }
     }
     

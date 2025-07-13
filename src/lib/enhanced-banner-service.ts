@@ -216,5 +216,16 @@ export function isEnhancedBannerCreationAvailable(): boolean {
   const hasFlux = !!import.meta.env.VITE_FLUX_API_KEY && 
                  import.meta.env.VITE_FLUX_API_KEY !== 'your_flux_api_key_here';
   
+  // Enhanced debugging for production issues
+  if (!hasOpenAI || !hasFlux) {
+    console.warn('Enhanced banner creation not available:', {
+      hasOpenAI,
+      hasFlux,
+      openaiKey: import.meta.env.VITE_OPENAI_API_KEY ? `${import.meta.env.VITE_OPENAI_API_KEY.substring(0, 7)}...` : 'undefined',
+      fluxKey: import.meta.env.VITE_FLUX_API_KEY ? `${import.meta.env.VITE_FLUX_API_KEY.substring(0, 7)}...` : 'undefined',
+      environment: import.meta.env.MODE
+    });
+  }
+  
   return hasOpenAI && hasFlux;
 } 

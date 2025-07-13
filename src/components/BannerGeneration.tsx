@@ -53,6 +53,13 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
   // Check if enhanced banner creation is available
   const enhancedBannerAvailable = isEnhancedBannerCreationAvailable();
 
+  // Update selectedPartnerId when preSelectedPartnerId changes
+  useEffect(() => {
+    if (preSelectedPartnerId && preSelectedPartnerId !== selectedPartnerId) {
+      setSelectedPartnerId(preSelectedPartnerId);
+    }
+  }, [preSelectedPartnerId]);
+
   // Load product photos when partner is selected
   useEffect(() => {
     const loadPartnerPhotos = async () => {

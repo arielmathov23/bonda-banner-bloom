@@ -8,42 +8,68 @@ const openai = new OpenAI({
 
 export interface StyleAnalysis {
   reference_style: {
-    color_composition: {
-      primary_palette: string;
+    color_palette: {
+      dominant_colors: string;
       accent_colors: string;
-      background_treatment: string;
-      contrast_level: string;
+      secondary_colors: string;
+      color_intensity: string;
       color_temperature: string;
+      color_harmony: string;
+      brand_color_usage: string;
     };
-    typography: {
-      headline_style: string;
-      body_text_treatment: string;
-      text_hierarchy: string;
-      text_effects: string;
+    background_treatment: {
+      base_type: string;
+      gradient_details: string;
+      environmental_elements: string;
+      depth_treatment: string;
+      overlay_treatment: string;
+      texture_details: string;
+      lighting_approach: string;
+      atmosphere_style: string;
     };
-    layout_composition: {
-      visual_balance: string;
-      white_space_usage: string;
-      element_arrangement: string;
-      focus_direction: string;
+    design_components: {
+      geometric_elements: string;
+      decorative_elements: string;
+      structural_lines: string;
+      pattern_details: string;
+      dimensional_effects: string;
+      border_treatments: string;
+      accent_graphics: string;
+      iconographic_elements: string;
     };
-    imagery_style: {
+    photo_integration: {
+      person_placement: string;
+      photo_background_blend: string;
       photo_treatment: string;
-      product_presentation: string;
-      human_elements: string;
-      visual_metaphors: string;
+      scale_relationship: string;
+      cutout_style: string;
+      photo_effects: string;
+      integration_quality: string;
+    };
+    composition_structure: {
+      visual_weight: string;
+      focal_areas: string;
+      space_usage: string;
+      layout_grid: string;
+      hierarchy_flow: string;
+      balance_approach: string;
+      negative_space: string;
     };
     brand_personality: {
-      tone: string;
-      target_demographic: string;
-      emotional_appeal: string;
-      brand_voice: string;
+      visual_tone: string;
+      sophistication_level: string;
+      energy_level: string;
+      approachability: string;
+      innovation_vs_tradition: string;
+      premium_vs_accessible: string;
     };
-    technical_elements: {
-      cta_styling: string;
-      logo_integration: string;
-      border_treatment: string;
-      effects_usage: string;
+    technical_specifications: {
+      aspect_ratio: string;
+      resolution_quality: string;
+      color_profile: string;
+      contrast_levels: string;
+      saturation_approach: string;
+      sharpness_style: string;
     };
   };
 }
@@ -69,7 +95,7 @@ async function imageToBase64(file: File): Promise<string> {
  * Generate comprehensive style analysis prompt with partner context
  */
 function generateStyleAnalysisPrompt(partnerName: string, partnerDescription: string, regions: string[]): string {
-  return `You are a professional brand and marketing analyst. Analyze the provided reference banner images for "${partnerName}" and extract detailed style DNA that can be used to generate consistent marketing materials.
+  return `You are a professional brand and marketing analyst specializing in visual identity extraction. Analyze the provided reference banner images for "${partnerName}" and extract comprehensive style DNA that can be used to generate consistent marketing materials.
 
 **Partner Context:**
 - Company: ${partnerName}
@@ -77,67 +103,95 @@ function generateStyleAnalysisPrompt(partnerName: string, partnerDescription: st
 - Target Regions: ${regions.join(', ')}
 
 **Analysis Instructions:**
-1. Examine ALL provided banner images carefully
-2. Identify consistent visual patterns across the images
-3. Extract the brand's visual DNA and style characteristics
-4. Focus on elements that make this brand recognizable and distinctive
+1. Examine ALL provided banner images carefully - analyze the ACTUAL visual elements present
+2. Extract specific design patterns, color schemes, and visual treatments
+3. Identify unique brand personality traits conveyed through design
+4. Analyze technical execution and quality standards
+5. Focus on background design, photo treatment, and layout composition
+6. Completely ignore text content, logos, and brand names - focus only on visual design DNA
 
 **Required Output Format:**
-Return a JSON object with the following structure. Be specific and descriptive in each field:
+Return a JSON object with the following structure. Be EXACT and SPECIFIC about what you observe:
 
 {
   "reference_style": {
-    "color_composition": {
-      "primary_palette": "Describe the main brand colors with hex codes if visible (e.g., 'Deep blue (#1a365d), warm orange (#ed8936)')",
-      "accent_colors": "Secondary colors used for highlights, CTAs, or accents",
-      "background_treatment": "How backgrounds are handled (solid colors, gradients, photos, textures, white space)",
-      "left_side_background": "Detailed description of left side background treatment for text overlay (solid color, gradient fade, transparent overlay, dark vignette, light fade, texture pattern, etc.)",
-      "right_side_background": "Detailed description of right side background treatment for text overlay (solid color, gradient fade, transparent overlay, dark vignette, light fade, texture pattern, etc.)",
-      "text_overlay_zones": "Specific areas optimized for text readability (dark overlay zones, light backgrounds, high contrast areas, gradient transitions)",
-      "fade_effects": "Description of any fade effects from center to edges (radial fade, linear gradient, vignette darkening, edge softening, etc.)",
-      "contrast_level": "Overall contrast approach (high contrast for readability, soft/muted, dramatic)",
-      "color_temperature": "Dominant color temperature (warm/orange-red, cool/blue-green, neutral)"
+    "color_palette": {
+      "dominant_colors": "Primary background colors with exact hex codes (e.g., '#0066cc', '#004499')",
+      "accent_colors": "Secondary accent colors visible in backgrounds, graphics, overlays",
+      "secondary_colors": "Supporting colors used in details, gradients, or subtle elements",
+      "color_intensity": "Vibrant/saturated/muted/subtle - describe the overall color strength",
+      "color_temperature": "Warm/cool/neutral - overall temperature of the color scheme",
+      "color_harmony": "Monochromatic/analogous/complementary/triadic - color relationship strategy",
+      "brand_color_usage": "How brand colors are applied (dominant/accent/highlight/background)"
     },
-    "typography": {
-      "headline_style": "Main headline characteristics (bold sans-serif, elegant script, modern condensed, etc.)",
-      "body_text_treatment": "Supporting text style (clean minimal, decorative, condensed, etc.)",
-      "text_hierarchy": "How text sizes and weights create hierarchy",
-      "text_effects": "Any text treatments (drop shadows, outlines, gradients, 3D effects, flat)"
+    "background_treatment": {
+      "base_type": "Solid/linear_gradient/radial_gradient/environmental_photo/texture/pattern/composite",
+      "gradient_details": "Direction (left-to-right/top-to-bottom/radial/diagonal), colors, transition points",
+      "environmental_elements": "Real-world background elements (architecture, equipment, nature, office, industrial)",
+      "depth_treatment": "Background depth creation (blur/fade/layering/sharp_focus/bokeh)",
+      "overlay_treatment": "Colored overlays, transparency effects, filters, vignettes applied",
+      "texture_details": "Surface textures (smooth/rough/metallic/matte/glossy/fabric/paper)",
+      "lighting_approach": "Natural/studio/dramatic/soft/hard lighting characteristics",
+      "atmosphere_style": "Professional/casual/energetic/calm/modern/traditional atmosphere"
     },
-    "layout_composition": {
-      "visual_balance": "Overall layout approach (centered, left-aligned, asymmetrical grid, dynamic)",
-      "white_space_usage": "How empty space is used (minimal/packed, generous breathing room, strategic gaps)",
-      "element_arrangement": "How elements relate (overlapping layers, clean separation, integrated design)",
-      "focus_direction": "How the eye is guided through the design (left-to-right, center-out, diagonal flow)"
+    "design_components": {
+      "geometric_elements": "Lines (diagonal/horizontal/vertical/curved), shapes (circles/rectangles/triangles)",
+      "decorative_elements": "Borders, frames, ornamental details, abstract shapes, design flourishes",
+      "structural_lines": "Grid lines, dividers, accent lines, directional elements that guide the eye",
+      "pattern_details": "Dots, stripes, chevrons, zigzags, repeating motifs, textural patterns",
+      "dimensional_effects": "3D elements, shadows, highlights, depth illusions, layered components",
+      "border_treatments": "Edge treatments, frame styles, containment methods, boundary definitions",
+      "accent_graphics": "Small graphic elements, icons, symbols, decorative graphics not part of main design",
+      "iconographic_elements": "Symbolic elements, industry-specific graphics, representational elements"
     },
-    "imagery_style": {
-      "photo_treatment": "Image style (realistic photography, stylized/filtered, illustrations, graphics)",
-      "product_presentation": "How products are shown (lifestyle context, clean studio, in-use, abstract)",
-      "human_elements": "People in images (diverse models, lifestyle shots, hands-only, no people)",
-      "visual_metaphors": "Symbolic or conceptual elements vs literal product representation"
+    "photo_integration": {
+      "person_placement": "Exact position (left-side/right-side/center/bottom-right/top-left/full-frame)",
+      "photo_background_blend": "Integration method (cutout/natural_blend/overlay/fade/composite)",
+      "photo_treatment": "Visual treatment (natural/enhanced/stylized/filtered/color_graded)",
+      "scale_relationship": "Size proportion relative to background space (dominant/balanced/accent)",
+      "cutout_style": "Edge treatment for cutout photos (clean/soft/feathered/artistic)",
+      "photo_effects": "Applied effects (shadows/glows/reflections/distortions/filters)",
+      "integration_quality": "How seamlessly photos blend with background (perfect/good/obvious/stylized)"
+    },
+    "composition_structure": {
+      "visual_weight": "Weight distribution (left-heavy/right-heavy/top-heavy/bottom-heavy/balanced)",
+      "focal_areas": "Primary attention zones (upper-left/center/lower-right/multiple)",
+      "space_usage": "Background space utilization (full-bleed/contained/asymmetrical/centered)",
+      "layout_grid": "Underlying structure (rule-of-thirds/golden-ratio/centered/free-form)",
+      "hierarchy_flow": "Visual flow direction (left-to-right/top-to-bottom/circular/diagonal)",
+      "balance_approach": "Balance method (symmetrical/asymmetrical/radial/mosaic)",
+      "negative_space": "Empty space usage (minimal/generous/strategic/cluttered)"
     },
     "brand_personality": {
-      "tone": "Overall brand feeling (professional/corporate, playful/fun, luxury/premium, approachable/friendly, bold/edgy)",
-      "target_demographic": "Apparent target audience indicators (young professionals, families, tech-savvy, traditional)",
-      "emotional_appeal": "What emotions are evoked (trust/reliability, excitement/energy, comfort/security, aspiration/success)",
-      "brand_voice": "Communication style (authoritative expert, friendly neighbor, cutting-edge innovator, trusted tradition)"
+      "visual_tone": "Overall mood (professional/friendly/serious/playful/sophisticated/approachable)",
+      "sophistication_level": "Design complexity (minimal/moderate/complex/luxury/premium)",
+      "energy_level": "Visual energy (calm/moderate/dynamic/high-energy/explosive)",
+      "approachability": "Accessibility feeling (corporate/friendly/intimidating/welcoming/neutral)",
+      "innovation_vs_tradition": "Design approach (cutting-edge/modern/classic/traditional/timeless)",
+      "premium_vs_accessible": "Market positioning (luxury/premium/mid-market/accessible/budget)"
     },
-    "technical_elements": {
-      "cta_styling": "Call-to-action button/text design (bold buttons, text links, color treatment, positioning)",
-      "logo_integration": "How the logo is used (prominent header, subtle corner, watermark, integrated into design)",
-      "border_treatment": "Edge and frame approach (clean edges, rounded corners, decorative borders, no borders)",
-      "effects_usage": "Visual effects used (drop shadows, gradients, textures, flat design, 3D elements)"
+    "technical_specifications": {
+      "aspect_ratio": "Banner proportions (16:9/21:9/3:1/custom)",
+      "resolution_quality": "Image clarity (high/medium/low resolution indicators)",
+      "color_profile": "Color space characteristics (vibrant/natural/muted/high-contrast)",
+      "contrast_levels": "Contrast approach (high/medium/low/dramatic/subtle)",
+      "saturation_approach": "Color saturation (highly_saturated/natural/desaturated/selective)",
+      "sharpness_style": "Edge treatment (crisp/soft/artistic/mixed)"
     }
   }
 }
 
-**Important Guidelines:**
-- Be specific and actionable in descriptions
-- Include actual color values when visible
-- Note patterns that appear across multiple images
-- Focus on elements that could be replicated in new banner designs
-- If images show different styles, describe the dominant or most consistent approach
-- Use professional marketing and design terminology`;
+**Critical Analysis Guidelines:**
+- Provide EXACT hex color codes by analyzing actual colors visible
+- Be precise about gradient directions and transition points
+- Describe environmental elements that create context or atmosphere
+- Identify specific design components: lines, shapes, patterns, textures
+- Specify exact positioning and spatial relationships
+- Analyze how different elements work together to create brand personality
+- Focus on technical execution quality and professional standards
+- Completely ignore all text, logos, and brand names - extract only visual design DNA
+- Be specific about measurements, positions, and proportions where possible
+- Describe how elements contribute to overall brand feeling and market positioning`;
 }
 
 /**

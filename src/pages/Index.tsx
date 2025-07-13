@@ -18,7 +18,7 @@ const Index = () => {
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>('');
   const [editingBanner, setEditingBanner] = useState<any>(null);
-  const { partners } = usePartners();
+  const { partners, fetchPartners } = usePartners();
   const { banners, isLoading, fetchBanners, getRecentBanners, getTotalBanners, getPartnerBannerCount } = useBanners();
 
   const recentBanners = getRecentBanners(3); // Show only the 3 most recent
@@ -28,6 +28,18 @@ const Index = () => {
     if (activeSection === 'home') {
       fetchBanners();
     }
+  }, [activeSection]);
+
+  // Auto-refresh partners when switching to create-banner section
+  useEffect(() => {
+    if (activeSection === 'create-banner') {
+      fetchPartners();
+    }
+  }, [activeSection]);
+
+  // Debug: Track activeSection changes
+  useEffect(() => {
+    console.log('activeSection changed to:', activeSection);
   }, [activeSection]);
 
   const stats = [
@@ -55,12 +67,19 @@ const Index = () => {
     setActiveSection('create-banner');
   };
 
+  // New function to handle partner selection in create-banner section
+  const handlePartnerSelection = (partnerId: string) => {
+    setSelectedPartnerId(partnerId);
+  };
+
   const handleEditBanner = (banner: any) => {
     setEditingBanner(banner);
     setActiveSection('edit-banner');
   };
 
   const handleSectionChange = (section: string) => {
+    console.log('handleSectionChange called with:', section, 'from current:', activeSection);
+    
     // Clear selected partner when switching to certain sections
     if (section === 'home' || section === 'partners' || section === 'banner-list') {
       setSelectedPartnerId('');

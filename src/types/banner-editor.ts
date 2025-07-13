@@ -10,7 +10,7 @@ export interface BannerComposition {
 
 export interface BannerAsset {
   id: string;
-  type: 'logo' | 'text';
+  type: 'logo' | 'text' | 'cta';
   position: { x: number; y: number };
   size: { width: number; height: number };
   rotation: number;
@@ -23,6 +23,11 @@ export interface BannerAsset {
   color?: string;
   fontWeight?: 'normal' | 'bold';
   textAlign?: 'left' | 'center' | 'right';
+  // For CTA button assets
+  backgroundColor?: string;
+  borderRadius?: number;
+  borderColor?: string;
+  borderWidth?: number;
 }
 
 export interface EditorState {

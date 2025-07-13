@@ -58,6 +58,9 @@ const PartnerCreationForm = ({ editingPartner, onSuccess }: PartnerCreationFormP
   const [isAnalyzingStyle, setIsAnalyzingStyle] = useState(false);
   const [styleAnalysisProgress, setStyleAnalysisProgress] = useState('');
 
+  // Track if reference banners have changed during editing
+  const [referenceBannersChanged, setReferenceBannersChanged] = useState(false);
+
   // Load existing partner data when editing
   useEffect(() => {
     if (editingPartner) {
@@ -77,6 +80,9 @@ const PartnerCreationForm = ({ editingPartner, onSuccess }: PartnerCreationFormP
       
       // Set existing product photos
       setExistingProductPhotos(editingPartner.product_photos_urls || []);
+      
+      // Reset reference banners changed flag when loading partner for editing
+      setReferenceBannersChanged(false);
       
       // Load brand guidelines from existing brand manual
       if (editingPartner.brand_manual_url) {
@@ -192,6 +198,11 @@ const PartnerCreationForm = ({ editingPartner, onSuccess }: PartnerCreationFormP
   // Remove existing reference banner
   const removeExistingReferenceBanner = (url: string) => {
     setExistingReferenceBanners(prev => prev.filter(bannerUrl => bannerUrl !== url));
+    
+    // Mark that reference banners changed during editing
+    if (editingPartner) {
+      setReferenceBannersChanged(true);
+    }
   };
 
   // Remove existing reference photo
@@ -245,6 +256,11 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
           file.type.includes('image/') && file.size <= 10 * 1024 * 1024
         );
         setReferenceBanners(prev => [...prev, ...bannerFiles]);
+        
+        // Mark that reference banners changed during editing
+        if (editingPartner) {
+          setReferenceBannersChanged(true);
+        }
         break;
       case 'productPhotos':
         const productFiles = files.filter(file => 
@@ -280,11 +296,21 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
       );
       
       setReferenceBanners(prev => [...prev, ...validFiles]);
+      
+      // Mark that reference banners changed during editing
+      if (editingPartner) {
+        setReferenceBannersChanged(true);
+      }
     }
   };
 
   const removeReferenceBanner = (index: number) => {
     setReferenceBanners(prev => prev.filter((_, i) => i !== index));
+    
+    // Mark that reference banners changed during editing
+    if (editingPartner) {
+      setReferenceBannersChanged(true);
+    }
   };
 
   const handleProductPhotosUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,14 +338,21 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
     let currentStyleAnalysis = styleAnalysis;
 
     // Perform style analysis if reference banners are provided and OpenAI is available
-    if (referenceBanners.length > 0 && isStyleAnalysisAvailable() && !editingPartner) {
+    // For new partners: analyze if banners are provided
+    // For existing partners: analyze only if banners have changed during editing
+    const shouldAnalyzeStyle = referenceBanners.length > 0 && isStyleAnalysisAvailable() && 
+                               (!editingPartner || referenceBannersChanged);
+    
+    if (shouldAnalyzeStyle) {
       try {
         setIsAnalyzingStyle(true);
         setStyleAnalysisProgress('Analizando estilo de banners de referencia...');
         
         toast({
           title: "Analizando estilo",
-          description: "OpenAI está analizando tus banners de referencia para extraer el ADN visual de la marca.",
+          description: editingPartner 
+            ? "OpenAI está regenerando el análisis de estilo con los nuevos banners de referencia."
+            : "OpenAI está analizando tus banners de referencia para extraer el ADN visual de la marca.",
         });
 
         currentStyleAnalysis = await analyzeReferenceStyle(
@@ -334,7 +367,9 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
         
         toast({
           title: "Análisis completado",
-          description: "Se ha extraído exitosamente el estilo visual de los banners de referencia.",
+          description: editingPartner 
+            ? "Se ha regenerado exitosamente el análisis de estilo con los nuevos banners."
+            : "Se ha extraído exitosamente el estilo visual de los banners de referencia.",
         });
 
       } catch (error) {
@@ -343,7 +378,9 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
         
         toast({
           title: "Error en el análisis",
-          description: "No se pudo analizar el estilo de los banners. El partner se creará sin análisis de estilo.",
+          description: editingPartner 
+            ? "No se pudo regenerar el análisis de estilo. El partner se actualizará sin cambios en el análisis."
+            : "No se pudo analizar el estilo de los banners. El partner se creará sin análisis de estilo.",
           variant: "destructive",
         });
         
@@ -416,6 +453,7 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
       setCurrentBenefit('');
       setStyleAnalysis(null);
       setStyleAnalysisProgress('');
+      setReferenceBannersChanged(false);
       
       // Call success callback
       if (onSuccess) {
@@ -965,6 +1003,21 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Show style analysis regeneration indicator */}
+            {editingPartner && referenceBannersChanged && isStyleAnalysisAvailable() && (
+              <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-amber-600" />
+                  <p className="text-sm font-medium text-amber-700">
+                    El análisis de estilo se regenerará con los nuevos banners
+                  </p>
+                </div>
+                <p className="text-xs text-amber-600 mt-1">
+                  Al actualizar el partner, OpenAI analizará los cambios en los banners de referencia
+                </p>
               </div>
             )}
             
