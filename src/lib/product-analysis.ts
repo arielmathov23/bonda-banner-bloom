@@ -89,34 +89,32 @@ export async function analyzeProductImage(imageFile: File): Promise<string> {
     // Convert image to base64
     const base64Image = await imageToBase64(imageFile);
 
-    const prompt = `[PRODUCT ANALYSIS REQUEST]
+    const prompt = `You are a professional product marketing analyst. Analyze this product image and provide a detailed description optimized for AI banner generation.
 
-You are a professional product marketing analyst. Analyze this product image and provide a comprehensive, marketing-focused description that will be used for AI banner generation.
+      ANALYZE AND DESCRIBE:
+      - Product type, category, and premium positioning
+      - Do not describe image background style and colors, only the product in terms of features, design.
+      - Key design features, form factor, and visual appeal elements
+      - Lighting, shadows, and photographic presentation quality
+      - Target market appeal and brand positioning indicators
 
-[ANALYSIS REQUIREMENTS]
-- Focus on visual elements that are important for marketing banners
-- Describe the product's key features, colors, textures, and positioning
-- Include details about lighting, composition, and visual appeal
-- Note any text, logos, or branding visible in the image
-- Describe the product's target market appeal
-- Keep the description factual and detailed but concise
+      BANNER INTEGRATION REQUIREMENTS:
+      - Compatible background colors that enhance the product's visual appeal
+      - Shadow/lighting needs for natural integration
+      - Text overlay zones that work with product placement
 
-[OUTPUT FORMAT]
-Provide a single paragraph description (150-300 words) that captures:
-1. Product type and category
-2. Visual characteristics (colors, materials, design)
-3. Key features and benefits visible
-4. Composition and presentation style
-5. Marketing appeal and target audience
+      OUTPUT FORMAT:
+      Single comprehensive paragraph (250-350 words) covering:
+      1. Product identity and premium positioning
+      2. Detailed visual characteristics (colors, materials, design)
+      3. Banner integration specifications (size, position, background compatibility)
+      4. Target audience and marketing appeal
+      5. Technical quality and presentation style
 
-[EXAMPLE OUTPUT STYLE]
-"Modern wireless bluetooth headphones in matte black finish with rose gold accents. Features over-ear design with plush padding, adjustable headband, and premium metal construction. The product is photographed against a clean white background with professional studio lighting, creating subtle shadows that enhance the premium aesthetic. Visible branding on the side panels suggests high-end audio equipment targeting young professionals and audiophiles. The sleek, minimalist design emphasizes sophistication and technological innovation, with clean lines and modern styling that would appeal to tech-savvy consumers aged 25-40."
+      EXAMPLE:
+      "Premium flagship smartphone in rose gold finish (#E8B4A0) with precision-machined aluminum frame and mirror-polished edges. Features sophisticated champagne-colored back panel with subtle texture variations and geometric camera array creating visual interest. Professional studio photography with controlled lighting and minimal shadows. Requires warm-toned backgrounds (cream, soft gold, neutrals) to enhance metallic finish. Casts natural shadows requiring subtle drop shadow in banner. Appeals to affluent professionals aged 25-45 seeking luxury technology. High visual weight demands balanced background elements. Text overlay works best in upper-left and lower-left quadrants. Excellent detail retention for large-format banner reproduction."
 
-[IMPORTANT]
-- Write in a descriptive, marketing-oriented tone
-- Focus on elements that would help an AI generate compelling banner backgrounds
-- Avoid speculation - only describe what you can clearly see
-- Keep it concise but comprehensive`;
+      Focus on elements that directly impact banner design decisions and AI generation quality.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", // Using gpt-4o-mini for vision capabilities

@@ -25,7 +25,7 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
   const [mainText, setMainText] = useState('');
   const [descriptionText, setDescriptionText] = useState('');
   const [ctaText, setCtaText] = useState('');
-  const [discountPercentage, setDiscountPercentage] = useState('');
+
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [productImagePreview, setProductImagePreview] = useState<string | null>(null);
   const [selectedExistingPhotoUrl, setSelectedExistingPhotoUrl] = useState<string | null>(null);
@@ -332,7 +332,7 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
         mainText,
         descriptionText,
         ctaText,
-        discountPercentage: discountPercentage ? parseInt(discountPercentage) : undefined,
+
         styleAnalysis: selectedPartner?.reference_style_analysis
       };
 
@@ -365,7 +365,7 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
     setMainText('');
     setDescriptionText('');
     setCtaText('');
-    setDiscountPercentage('');
+
     setProductImageFile(null);
     setProductImagePreview(null);
     setSelectedExistingPhotoUrl(null);
@@ -707,19 +707,7 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
             />
           </div>
 
-          {/* Discount Percentage */}
-          <div className="space-y-2">
-            <Label htmlFor="discount">Porcentaje de descuento (opcional)</Label>
-            <Input
-              id="discount"
-              type="number"
-              value={discountPercentage}
-              onChange={(e) => setDiscountPercentage(e.target.value)}
-              placeholder="Ej: 25"
-              min="0"
-              max="100"
-            />
-          </div>
+
 
           {/* Generation Progress */}
           {isGenerating && (

@@ -81,19 +81,12 @@ For production, you need a proper backend proxy.
  */
 export function getProxyImageUrl(originalUrl: string): string {
   // Check if it's a Flux delivery URL that needs proxying
-  if (originalUrl.includes('delivery-us1.bfl.ai')) {
-    // Extract the path from the URL
-    const url = new URL(originalUrl);
-    const path = url.pathname + url.search;
+  if (originalUrl.includes('delivery-eu1.bfl.ai') || 
+      originalUrl.includes('delivery-us1.bfl.ai') || 
+      originalUrl.includes('bfl.ai')) {
     
-    // In development, use our proxy
-    if (import.meta.env.DEV) {
-      return `/api/proxy-image${path}`;
-    }
-    
-    // In production, you'd need to implement a backend proxy
-    // For now, return the original URL and let it fail gracefully
-    return originalUrl;
+    // Use our image proxy endpoint for both dev and production
+    return `/api/image-proxy?url=${encodeURIComponent(originalUrl)}`;
   }
   
   // For other URLs, return as-is
@@ -125,8 +118,8 @@ export function loadImageWithProxy(imageUrl: string): Promise<HTMLImageElement> 
       }
     };
     
-    // Set crossOrigin for proxy URLs in development
-    if (proxyUrl.startsWith('/api/proxy-image')) {
+    // Set crossOrigin for proxy URLs
+    if (proxyUrl.startsWith('/api/image-proxy')) {
       img.crossOrigin = 'anonymous';
     }
     

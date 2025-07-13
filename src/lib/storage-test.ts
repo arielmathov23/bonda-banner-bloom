@@ -87,3 +87,136 @@ if (typeof window !== 'undefined') {
     testStorageSetup();
   }, 1000);
 } 
+
+// Storage Test Utility - Add to debug Supabase Storage issues
+// This helps diagnose why images fail to load in the BannerEditor
+
+export interface ImageTestResult {
+  method: string;
+  success: boolean;
+  error?: string;
+  loadTime?: number;
+}
+
+export async function testImageLoading(imageUrl: string): Promise<ImageTestResult[]> {
+  const results: ImageTestResult[] = [];
+  
+  console.log('🔍 Testing image loading methods for:', imageUrl);
+  
+  // Test 1: Direct load without CORS
+  const result1 = await testDirectLoad(imageUrl, false);
+  results.push(result1);
+  
+  // Test 2: Direct load with CORS
+  const result2 = await testDirectLoad(imageUrl, true);
+  results.push(result2);
+  
+  // Test 3: Fetch test
+  const result3 = await testFetchMethod(imageUrl);
+  results.push(result3);
+  
+  console.log('📊 Image loading test results:', results);
+  return results;
+}
+
+async function testDirectLoad(imageUrl: string, useCors: boolean): Promise<ImageTestResult> {
+  const method = useCors ? 'Direct Load (with CORS)' : 'Direct Load (no CORS)';
+  const startTime = Date.now();
+  
+  return new Promise((resolve) => {
+    const img = new Image();
+    
+    if (useCors) {
+      img.crossOrigin = 'anonymous';
+    }
+    
+    img.onload = () => {
+      const loadTime = Date.now() - startTime;
+      console.log(`✅ ${method} succeeded in ${loadTime}ms`);
+      resolve({
+        method,
+        success: true,
+        loadTime
+      });
+    };
+    
+    img.onerror = (error) => {
+      const loadTime = Date.now() - startTime;
+      console.log(`❌ ${method} failed after ${loadTime}ms:`, error);
+      resolve({
+        method,
+        success: false,
+        error: error.toString(),
+        loadTime
+      });
+    };
+    
+    img.src = imageUrl;
+  });
+}
+
+async function testFetchMethod(imageUrl: string): Promise<ImageTestResult> {
+  const method = 'Fetch Method';
+  const startTime = Date.now();
+  
+  try {
+    const response = await fetch(imageUrl);
+    const loadTime = Date.now() - startTime;
+    
+    if (response.ok) {
+      console.log(`✅ ${method} succeeded in ${loadTime}ms`);
+      return {
+        method,
+        success: true,
+        loadTime
+      };
+    } else {
+      console.log(`❌ ${method} failed with status ${response.status} after ${loadTime}ms`);
+      return {
+        method,
+        success: false,
+        error: `HTTP ${response.status}: ${response.statusText}`,
+        loadTime
+      };
+    }
+  } catch (error) {
+    const loadTime = Date.now() - startTime;
+    console.log(`❌ ${method} failed after ${loadTime}ms:`, error);
+    return {
+      method,
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+      loadTime
+    };
+  }
+}
+
+// Quick test function to call from browser console
+export function quickImageTest(imageUrl: string) {
+  console.log('🚀 Starting quick image test...');
+  testImageLoading(imageUrl).then((results) => {
+    console.table(results);
+    
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+    
+    console.log(`📈 Summary: ${successful.length} successful, ${failed.length} failed`);
+    
+    if (successful.length === 0) {
+      console.log('🚨 All methods failed! This indicates a serious storage configuration issue.');
+      console.log('💡 Recommendations:');
+      console.log('1. Run verify_supabase_storage.sql in your Supabase SQL Editor');
+      console.log('2. Check if the banners bucket exists and is public');
+      console.log('3. Verify RLS policies are correctly configured');
+    } else if (failed.length > 0) {
+      console.log('⚠️ Some methods failed. This might indicate CORS configuration issues.');
+    } else {
+      console.log('✅ All methods succeeded! The image should load correctly.');
+    }
+  });
+}
+
+// Export for global access in development
+if (typeof window !== 'undefined') {
+  (window as any).quickImageTest = quickImageTest;
+} 

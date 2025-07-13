@@ -445,7 +445,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       });
     }
     
-    // Add main text with fixed position and secondary color
+    // Add main text with fixed position and Cerebi Sans in black
     if (actualBannerText) {
       initialAssets.push({
         id: `text_${Date.now()}`,
@@ -455,14 +455,14 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         rotation: 0,
         text: actualBannerText,
         fontSize: 42, // Larger title font
-        fontFamily: brandGuidelines.fontPrimary,
-        color: brandGuidelines.secondaryColor,
+        fontFamily: 'Cerebi Sans',
+        color: '#000000',
         fontWeight: 'bold',
         textAlign: 'left'
       });
     }
 
-    // Add description text with fixed position and same color as title
+    // Add description text with fixed position and Cerebi Sans in black
     if (actualDescriptionText) {
       initialAssets.push({
         id: `description_${Date.now()}`,
@@ -471,9 +471,9 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         size: { width: FIXED_LAYOUT.descriptionText.width, height: FIXED_LAYOUT.descriptionText.height },
         rotation: 0,
         text: actualDescriptionText,
-        fontSize: 20, // Smaller than title, good proportion
-        fontFamily: brandGuidelines.fontPrimary,
-        color: brandGuidelines.secondaryColor, // Same color as title
+        fontSize: 36, // Smaller than title, good proportion
+        fontFamily: 'Cerebi Sans',
+        color: '#000000',
         fontWeight: 'normal',
         textAlign: 'left'
       });
@@ -488,7 +488,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         size: { width: FIXED_LAYOUT.ctaButton.width, height: FIXED_LAYOUT.ctaButton.height },
         rotation: 0,
         text: actualCtaText,
-        fontSize: 16, // Appropriate size for CTA button
+        fontSize: 20, // Appropriate size for CTA button
         fontFamily: 'Roboto', // Use Roboto for CTA buttons
         color: brandGuidelines.mainColor,
         fontWeight: 'bold',
@@ -811,45 +811,85 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         }, 2000);
       }
       
-      // Load background image optimized for export - try to avoid CORS tainting
-      console.log('Loading background image optimized for export...');
-      const img = document.createElement('img');
+      // Load background image with appropriate method based on source
+      console.log('Loading background image with appropriate method...');
       
-      // First try: Load without CORS to avoid tainting (works for same-origin and permissive CORS)
-      img.onload = () => {
-        console.log('✅ Background image loaded without CORS - canvas export will work perfectly');
-        setBackgroundImage(img);
-      };
-      
-      img.onerror = (error) => {
-        console.warn('Background image failed without CORS, trying with crossOrigin...');
-        // Second try: Use crossOrigin (might work if server supports CORS)
-        const corsImg = document.createElement('img');
-        corsImg.crossOrigin = 'anonymous';
+      if (isSupabaseStorage) {
+        // For Supabase storage URLs, try different loading methods
+        console.log('Loading Supabase storage image...');
         
-        corsImg.onload = () => {
-          console.log('✅ Background image loaded with CORS - canvas export should work');
-          setBackgroundImage(corsImg);
+        // First try: Load without CORS (might work for public buckets)
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+          console.log('✅ Supabase storage image loaded successfully (no CORS)');
+          setBackgroundImage(img);
         };
         
-        corsImg.onerror = (corsError) => {
-          console.warn('Background image failed with CORS too. Trying as display-only...');
-          // Third try: Load for display only (will taint canvas but shows image)
-          const displayImg = document.createElement('img');
-          displayImg.onload = () => {
-            console.log('⚠️ Background image loaded for display only - canvas may be tainted');
-            setBackgroundImage(displayImg);
+        img.onerror = (error) => {
+          console.warn('Failed to load without CORS, trying with CORS...', error);
+          
+          // Second try: Load with CORS
+          const corsImg = document.createElement('img');
+          corsImg.crossOrigin = 'anonymous';
+          
+          corsImg.onload = () => {
+            console.log('✅ Supabase storage image loaded successfully (with CORS)');
+            setBackgroundImage(corsImg);
           };
-          displayImg.onerror = (finalError) => {
-            console.error('❌ All background image loading methods failed:', finalError);
+          
+          corsImg.onerror = (corsError) => {
+            console.error('❌ Failed to load Supabase storage image with both methods:', corsError);
+            console.error('URL:', actualBackgroundImageUrl);
+            console.error('This might indicate a bucket permissions issue or CORS configuration problem.');
+            
+            // Show user-friendly error
+            toast({
+              title: "Error al cargar imagen",
+              description: "No se pudo cargar la imagen del banner. Verifica la configuración de Supabase Storage.",
+              variant: "destructive"
+            });
           };
-          displayImg.src = actualBackgroundImageUrl;
+          
+          corsImg.src = actualBackgroundImageUrl;
         };
         
-        corsImg.src = actualBackgroundImageUrl;
-      };
-      
-      img.src = actualBackgroundImageUrl;
+        img.src = actualBackgroundImageUrl;
+      } else if (isExternalService) {
+        // For external services, use the proxy method
+        console.log('Loading external service image via proxy...');
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+          console.log('✅ External service image loaded via proxy');
+          setBackgroundImage(img);
+        };
+        
+        img.onerror = (error) => {
+          console.error('❌ Failed to load external service image via proxy:', error);
+          console.error('URL:', actualBackgroundImageUrl);
+        };
+        
+        // Use proxy for external services
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(actualBackgroundImageUrl)}`;
+        img.src = proxyUrl;
+      } else {
+        // For other URLs (local development, etc.), use simple loading
+        console.log('Loading local/other image directly...');
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+          console.log('✅ Local/other image loaded successfully');
+          setBackgroundImage(img);
+        };
+        
+        img.onerror = (error) => {
+          console.error('❌ Failed to load local/other image:', error);
+          console.error('URL:', actualBackgroundImageUrl);
+        };
+        
+        img.src = actualBackgroundImageUrl;
+      }
       
       // Update composition with actual background image URL
       setComposition(prev => ({
@@ -930,18 +970,21 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         // Use proper sizing instead of natural dimensions
         const { width: logoWidth, height: logoHeight } = calculateLogoSize(logoImage.naturalWidth, logoImage.naturalHeight);
         
-        setComposition(prev => ({
-          ...prev,
-          assets: prev.assets.map(asset => 
-            asset.id === logoAsset.id 
-              ? { ...asset, size: { width: logoWidth, height: logoHeight } }
-              : asset
-          ),
-          lastModified: new Date()
-        }));
+        // Only update if the size has actually changed to prevent infinite loops
+        if (logoAsset.size.width !== logoWidth || logoAsset.size.height !== logoHeight) {
+          setComposition(prev => ({
+            ...prev,
+            assets: prev.assets.map(asset => 
+              asset.id === logoAsset.id 
+                ? { ...asset, size: { width: logoWidth, height: logoHeight } }
+                : asset
+            ),
+            lastModified: new Date()
+          }));
+        }
       }
     }
-  }, [logoImage, composition.assets]);
+  }, [logoImage]); // Removed composition.assets from dependency array to prevent infinite loop
 
   // Handle resize
   // DIRECT resize function that works immediately
@@ -1466,18 +1509,22 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                 </div>
               </SelectItem>
               {/* Partner Brand Fonts */}
-              <SelectItem value={brandGuidelines.fontPrimary}>
-                <div className="flex items-center">
-                  <span className="text-blue-600 mr-2">●</span>
-                  {brandGuidelines.fontPrimary} (Principal)
-                </div>
-              </SelectItem>
-              <SelectItem value={brandGuidelines.fontSecondary}>
-                <div className="flex items-center">
-                  <span className="text-blue-600 mr-2">●</span>
-                  {brandGuidelines.fontSecondary} (Secundaria)
-                </div>
-              </SelectItem>
+              {brandGuidelines.fontPrimary !== 'Roboto' && (
+                <SelectItem value={brandGuidelines.fontPrimary}>
+                  <div className="flex items-center">
+                    <span className="text-blue-600 mr-2">●</span>
+                    {brandGuidelines.fontPrimary} (Principal)
+                  </div>
+                </SelectItem>
+              )}
+              {brandGuidelines.fontSecondary !== 'Roboto' && (
+                <SelectItem value={brandGuidelines.fontSecondary}>
+                  <div className="flex items-center">
+                    <span className="text-blue-600 mr-2">●</span>
+                    {brandGuidelines.fontSecondary} (Secundaria)
+                  </div>
+                </SelectItem>
+              )}
               <Separator />
               {/* Other Fonts */}
               {fontOptions.filter(font => 

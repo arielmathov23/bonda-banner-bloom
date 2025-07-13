@@ -713,30 +713,22 @@ function generateStyledBannerPrompt(
   const visualTone = brandPersonality.visual_tone || 'professional and modern';
   const sophistication = brandPersonality.sophistication_level || 'high professional standard';
 
-  const prompt = `Create a professional marketing banner background for ${partnerName}.
+  const prompt = `Create a stunning, scroll-stopping e-commerce banner for ${partnerName} that combines the styles of the brand with the product image in a modern visual impact with professional sophistication.
 
 CRITICAL INSTRUCTIONS:
 - ABSOLUTELY NO TEXT, letters, numbers, words, or symbols anywhere in the image
 - NO logos, brand names, or readable content
-- Focus ONLY on background design suitable for marketing overlay and literal usage of the image attached.
+- Product image should be in the center of the banner, no bigger than 30% of the banner width.
+- Focus on creating a visually compelling design that naturally integrates backgroudn with the product.
 
-PRODUCT PHOTO INTEGRATION:
-- Use the provided product image: ${productDescription}, and create abstract background that complements the product's visual style with cool patterns.
-
-<design_foundation>
-Visual Style: ${visualTone} with ${sophistication} execution
-Color Palette: ${primaryColors} (primary colors), ${accentColors} (accent colors)
-Color Temperature: ${colorTemp}
-Background Type: ${backgroundType}
-Gradient Direction: ${gradientDetails}
-Atmosphere: ${atmosphereStyle}
-</design_foundation>
-
-<layout_zones>
-Left and right: High contrast area optimized for text overlay, use solid colors or subtle gradients
-Background Flow: ${gradientDetails} with seamless professional transitions
-Visual Depth: ${dimensionalEffects} applied with professional restraint
-</layout_zones>
+<product_integration>
+Only consider the product image description, not its background color.
+Product Description: ${productDescription}
+Product Positioning: Centered in banner composition
+Product Scale: Maximum 30% of total banner width
+Background Relationship: Background should enhance and complement product colors
+Shadow Treatment: Subtle drop shadow for depth and natural integration
+</product_integration>
 
 <design_elements>
 Geometric Style: ${geometricElements} with minimal professional approach
@@ -746,21 +738,28 @@ Border Treatment: Professional clean edges
 Surface Quality: Smooth, professional finish suitable for commercial use
 </design_elements>
 
-<technical_requirements>
-Quality: High-resolution professional commercial grade
-Style: Abstract background design optimized for text and graphic overlay
-Output: Clean, sophisticated background that enhances brand presentation
-Color Profile: Professional color accuracy with ${colorTemp} tone
-</technical_requirements>
+<design_foundation>
+Visual Style: ${visualTone} with ${sophistication} execution
+Color Palette: ${primaryColors} (dominant 60%), ${accentColors} (accent 30%)
+Color Temperature: ${colorTemp} with saturation
+Background Type: ${backgroundType} with modern enhancement
+Gradient Direction: ${gradientDetails} with seamless professional transitions
+Atmosphere: ${atmosphereStyle} with contemporary visual impact
+Apply modern trends for cutting-edge appeal
+</design_foundation>
 
-<brand_essence>
-Brand Personality: ${visualTone}
-Professional Level: ${sophistication}
-Target: Business and professional audiences
-Application: Digital marketing banner background foundation
-</brand_essence>
+<layout_zones>
+Product Zone: Center (30% of banner), natural integration with background
+Text Overlay Zones: Left and right thirds (35% each), high contrast areas optimized for text
+Background Flow: ${gradientDetails} with seamless professional transitions
+Visual Depth: ${dimensionalEffects} applied strategically for modern appeal
+Breathing Room: 5% margin around product for comfortable composition
+Balance: Symmetrical weight distribution with product as focal anchor
+</layout_zones>
 
-FINAL REQUIREMENT: Create an abstract, sophisticated background design that captures the brand's visual essence through color, texture, and subtle design elements. The result must be a clean foundation suitable for overlay text and graphics, without any literal or recognizable elements.`;
+<final_requirements>
+Create a sophisticated banner background design that captures the brand's visual essence through color, texture, and subtle design elements. The result must be a clean foundation suitable for overlay text and graphics, without any literal or recognizable elements.
+</final_requirements>`;
 
   return prompt;
 }

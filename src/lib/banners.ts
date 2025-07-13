@@ -28,11 +28,17 @@ export async function uploadImageToStorage(
     let imageBlob: Blob;
     
     // Check if this is a CORS-blocked URL (like Flux delivery URLs)
-    if (imageUrl.includes('delivery-us1.bfl.ai') || imageUrl.includes('bfl.ai')) {
-      console.log('Detected Flux URL, using canvas conversion to bypass CORS...');
+    const isExternalUrl = imageUrl.includes('delivery-eu1.bfl.ai') || 
+                         imageUrl.includes('delivery-us1.bfl.ai') || 
+                         imageUrl.includes('bfl.ai') ||
+                         imageUrl.includes('openai.com') ||
+                         !imageUrl.includes(window.location.hostname);
+    
+    if (isExternalUrl) {
+      console.log('Detected external URL, using proxy with canvas conversion...');
       
       try {
-        // Use the CORS helper to load the image
+        // Use the CORS helper to load the image via proxy
         const img = await loadImageWithProxy(imageUrl);
         
         // Convert to canvas and then to blob
@@ -58,16 +64,23 @@ export async function uploadImageToStorage(
           }, 'image/png', 0.95);
         });
         
-        console.log('Successfully converted Flux image to blob via canvas');
+        console.log('Successfully converted external image to blob via canvas');
       } catch (canvasError) {
-        console.warn('Canvas conversion failed, trying direct fetch:', canvasError);
+        console.warn('Canvas conversion failed, trying direct proxy fetch:', canvasError);
         
-        // Fallback to direct fetch (might fail due to CORS)
-        const response = await fetch(imageUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch image: ${response.statusText}`);
+        // Fallback to direct proxy fetch
+        try {
+          const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
+          const response = await fetch(proxyUrl);
+          if (!response.ok) {
+            throw new Error(`Proxy fetch failed: ${response.statusText}`);
+          }
+          imageBlob = await response.blob();
+          console.log('Successfully fetched image via direct proxy');
+        } catch (proxyError) {
+          console.error('Both canvas and proxy methods failed:', proxyError);
+          throw new Error(`Failed to fetch image from external source: ${proxyError.message}`);
         }
-        imageBlob = await response.blob();
       }
     } else {
       // For non-CORS URLs, use direct fetch
