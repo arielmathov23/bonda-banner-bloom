@@ -1,4 +1,6 @@
-module.exports = async function handler(req: any, res: any) {
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -30,7 +32,7 @@ module.exports = async function handler(req: any, res: any) {
       'supabase.co'
     ];
     
-    const urlObj = new URL(url);
+    const urlObj = new URL(url as string);
     const isAllowed = allowedDomains.some(domain => 
       urlObj.hostname === domain || urlObj.hostname.endsWith(`.${domain}`)
     );
@@ -42,7 +44,7 @@ module.exports = async function handler(req: any, res: any) {
     console.log('Proxying image request to:', url);
     
     // Fetch the image
-    const imageResponse = await fetch(url);
+    const imageResponse = await fetch(url as string);
     
     if (!imageResponse.ok) {
       console.error('Failed to fetch image:', imageResponse.status, imageResponse.statusText);
@@ -70,4 +72,4 @@ module.exports = async function handler(req: any, res: any) {
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}; 
+} 
