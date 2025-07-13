@@ -21,9 +21,31 @@ module.exports = async function handler(req: any, res: any) {
     });
   }
 
+  // Debug the request
+  console.log('=== DYNAMIC ROUTE DEBUG ===');
+  console.log('Full request URL:', req.url);
+  console.log('Request query:', req.query);
+  console.log('Raw slug from query:', req.query.slug);
+  console.log('Slug type:', typeof req.query.slug);
+  console.log('Slug is array:', Array.isArray(req.query.slug));
+
   // Determine the target URL based on the request path
   const { slug } = req.query;
-  const path = Array.isArray(slug) ? slug.join('/') : slug || '';
+  let path = '';
+  
+  if (Array.isArray(slug)) {
+    path = slug.join('/');
+    console.log('Slug is array, joined path:', path);
+  } else if (slug) {
+    path = slug as string;
+    console.log('Slug is string, path:', path);
+  } else {
+    path = '';
+    console.log('No slug found, empty path');
+  }
+  
+  console.log('Final extracted path:', path);
+  console.log('=== END DEBUG ===');
   
   // Handle different Flux API endpoints
   let targetUrl = '';
@@ -35,9 +57,16 @@ module.exports = async function handler(req: any, res: any) {
     // Handle polling URLs that come from the Flux API response
     const resultId = path.split('/').pop();
     targetUrl = `https://api.bfl.ai/v1/get_result?id=${resultId}`;
-  } else {
+  } else if (path) {
     // Default to the base URL with the path
     targetUrl = `https://api.bfl.ai/v1/${path}`;
+  } else {
+    // Fallback if no path - this shouldn't happen but let's handle it
+    console.error('No path extracted from slug, cannot determine target URL');
+    return res.status(400).json({
+      error: 'Invalid API endpoint',
+      details: `No path could be extracted from request. Slug: ${JSON.stringify(slug)}`
+    });
   }
 
   console.log(`Proxying request to: ${targetUrl}`);

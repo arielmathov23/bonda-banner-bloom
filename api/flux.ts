@@ -10,6 +10,13 @@ module.exports = async function handler(req: any, res: any) {
     return;
   }
 
+  // Debug the request
+  console.log('=== MAIN FLUX ROUTE DEBUG ===');
+  console.log('Full request URL:', req.url);
+  console.log('Request query:', req.query);
+  console.log('This should only handle /api/flux, not /api/flux/*');
+  console.log('=== END DEBUG ===');
+
   // Get the API key from environment variables
   const apiKey = process.env.VITE_FLUX_API_KEY || process.env.FLUX_API_KEY;
   
@@ -21,26 +28,20 @@ module.exports = async function handler(req: any, res: any) {
     });
   }
 
-  // Determine the target URL based on the request path
-  const { slug } = req.query;
-  const path = Array.isArray(slug) ? slug.join('/') : slug || '';
-  
-  // Handle different Flux API endpoints
+  // This route should only handle direct /api/flux calls
+  // But let's add fallback logic for debugging
   let targetUrl = '';
-  if (path.startsWith('flux-pro-1.1')) {
+  
+  // Check if this is a flux-pro-1.1 request that somehow ended up here
+  if (req.url?.includes('flux-pro-1.1') || req.method === 'POST') {
+    console.log('⚠️  Warning: flux-pro-1.1 request hit main route instead of dynamic route');
     targetUrl = 'https://api.bfl.ai/v1/flux-pro-1.1';
-  } else if (path.startsWith('get_result')) {
-    targetUrl = `https://api.bfl.ai/v1/get_result${req.url?.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
-  } else if (path.includes('result')) {
-    // Handle polling URLs that come from the Flux API response
-    const resultId = path.split('/').pop();
-    targetUrl = `https://api.bfl.ai/v1/get_result?id=${resultId}`;
   } else {
-    // Default to the base URL with the path
-    targetUrl = `https://api.bfl.ai/v1/${path}`;
+    // Default fallback for other requests
+    targetUrl = 'https://api.bfl.ai/v1/';
   }
 
-  console.log(`Proxying request to: ${targetUrl}`);
+  console.log(`Main route proxying request to: ${targetUrl}`);
   console.log(`Method: ${req.method}`);
 
   try {
