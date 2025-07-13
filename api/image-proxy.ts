@@ -1,4 +1,4 @@
-export default async function handler(req: any, res: any) {
+module.exports = async function handler(req: any, res: any) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -64,10 +64,10 @@ export default async function handler(req: any, res: any) {
     res.status(200).send(Buffer.from(imageBuffer));
     
   } catch (error) {
-    console.error('Error in image proxy:', error);
-    res.status(500).json({ 
+    console.error('Image proxy error:', error);
+    res.status(500).json({
       error: 'Internal server error',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-} 
+}; 
