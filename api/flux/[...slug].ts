@@ -21,51 +21,31 @@ module.exports = async function handler(req: any, res: any) {
     });
   }
 
-  // Debug the request
-  console.log('=== DYNAMIC ROUTE DEBUG ===');
-  console.log('Full request URL:', req.url);
-  console.log('Request query:', req.query);
-  console.log('Raw slug from query:', req.query.slug);
-  console.log('Slug type:', typeof req.query.slug);
-  console.log('Slug is array:', Array.isArray(req.query.slug));
-
-  // Determine the target URL based on the request path
-  const { slug } = req.query;
+  // Extract path from query - Vercel creates '...slug' parameter instead of 'slug'
+  const slugParam = req.query.slug || req.query['...slug'];
   let path = '';
   
-  if (Array.isArray(slug)) {
-    path = slug.join('/');
-    console.log('Slug is array, joined path:', path);
-  } else if (slug) {
-    path = slug as string;
-    console.log('Slug is string, path:', path);
-  } else {
-    path = '';
-    console.log('No slug found, empty path');
+  if (Array.isArray(slugParam)) {
+    path = slugParam.join('/');
+  } else if (slugParam) {
+    path = slugParam as string;
   }
   
-  console.log('Final extracted path:', path);
-  console.log('=== END DEBUG ===');
+  console.log('Dynamic route - extracted path:', path);
   
-  // Handle different Flux API endpoints
+  // Determine target URL
   let targetUrl = '';
-  if (path.startsWith('flux-pro-1.1')) {
+  if (path === 'flux-pro-1.1' || path.startsWith('flux-pro-1.1')) {
     targetUrl = 'https://api.bfl.ai/v1/flux-pro-1.1';
   } else if (path.startsWith('get_result')) {
     targetUrl = `https://api.bfl.ai/v1/get_result${req.url?.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
   } else if (path.includes('result')) {
-    // Handle polling URLs that come from the Flux API response
     const resultId = path.split('/').pop();
     targetUrl = `https://api.bfl.ai/v1/get_result?id=${resultId}`;
-  } else if (path) {
-    // Default to the base URL with the path
-    targetUrl = `https://api.bfl.ai/v1/${path}`;
   } else {
-    // Fallback if no path - this shouldn't happen but let's handle it
-    console.error('No path extracted from slug, cannot determine target URL');
     return res.status(400).json({
       error: 'Invalid API endpoint',
-      details: `No path could be extracted from request. Slug: ${JSON.stringify(slug)}`
+      details: `Unknown path: ${path}`
     });
   }
 
