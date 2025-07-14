@@ -493,7 +493,7 @@ export async function generateBannerWithProductAndStyle(
       height: targetDimensions.height,
       prompt_upsampling: false,
       seed: null,
-      safety_tolerance: 6, // Increased to be more permissive and reduce weird rejections
+      safety_tolerance: 3, // Increased to be more permissive and reduce weird rejections
       output_format: 'png',
       image_prompt: productImageBase64 // Use product image as compositional reference only
     };
@@ -679,7 +679,7 @@ async function imageToBase64File(file: File): Promise<string> {
 
 /**
  * Generate optimized prompt for Flux based on style analysis and product description
- * SIMPLIFIED VERSION - Focused on abstract design elements only
+ * ENHANCED VERSION - Uses comprehensive style analysis data
  */
 function generateStyledBannerPrompt(
   partnerName: string,
@@ -689,76 +689,123 @@ function generateStyledBannerPrompt(
   ctaText: string,
   discountPercentage?: number
 ): string {
-  // Extract ONLY key style elements with intelligent fallbacks
+  // Extract comprehensive style elements with intelligent fallbacks
   const colorPalette = styleAnalysis?.reference_style?.color_palette || {};
   const backgroundTreatment = styleAnalysis?.reference_style?.background_treatment || {};
   const designComponents = styleAnalysis?.reference_style?.design_components || {};
   const brandPersonality = styleAnalysis?.reference_style?.brand_personality || {};
+  const wowFactorElements = styleAnalysis?.reference_style?.wow_factor_elements || {};
+  const photoIntegration = styleAnalysis?.reference_style?.photo_integration || {};
+  const compositionStructure = styleAnalysis?.reference_style?.composition_structure || {};
+  const backgroundEnhancement = styleAnalysis?.reference_style?.background_enhancement_potential || {};
   
-  // Extract colors safely
+  // Enhanced color extraction
   const primaryColors = colorPalette.dominant_colors || '#0072B8, #004A99';
   const accentColors = colorPalette.accent_colors || '#00A3E0, #66B2FF';
+  const secondaryColors = colorPalette.secondary_colors || '#E6F3FF, #B3D9FF';
   const colorTemp = colorPalette.color_temperature || 'cool and professional';
+  const gradientSophistication = colorPalette.gradient_sophistication || 'smooth professional transitions';
+  const colorContrast = colorPalette.color_contrast_strategy || 'high-contrast for impact';
   
-  // Extract background style safely (avoid environmental elements)
+  // Enhanced background treatment
   const backgroundType = backgroundTreatment.base_type || 'professional gradient';
   const gradientDetails = backgroundTreatment.gradient_details || 'left-to-right smooth transition';
   const atmosphereStyle = backgroundTreatment.atmosphere_style || 'clean modern professional';
+  const textureDetails = backgroundTreatment.texture_details || 'smooth professional finish';
+  const environmentalElements = backgroundTreatment.environmental_elements || 'clean abstract environment';
   
-  // Extract design elements safely
+  // Wow factor elements for modern appeal
+  const dynamicElements = wowFactorElements.dynamic_background_elements || 'subtle flowing lines and energy';
+  const modernTrends = wowFactorElements.modern_trends_applied || 'contemporary gradient meshes and depth';
+  const depthIllusions = wowFactorElements.depth_illusions || 'layered dimensional stacking';
+  const lightShadow = wowFactorElements.light_and_shadow || 'soft professional lighting';
+  const textureSophistication = wowFactorElements.texture_sophistication || 'subtle premium textures';
+  const colorDrama = wowFactorElements.color_drama || 'vibrant professional color pops';
+  
+  // Enhanced design components
   const geometricElements = designComponents.geometric_elements || 'clean modern lines';
+  const patternDetails = designComponents.pattern_details || 'minimal professional patterns';
   const dimensionalEffects = designComponents.dimensional_effects || 'subtle depth and shadows';
+  const iconographicElements = designComponents.iconographic_elements || 'abstract professional elements';
   
-  // Extract brand personality safely
+  // Photo integration specifications
+  const productScale = photoIntegration.product_scale_optimization || '30%';
+  const positioningStrategy = photoIntegration.positioning_strategy || 'center-focused with rule-of-thirds';
+  const photoTreatment = photoIntegration.photo_treatment || 'natural professional integration';
+  const photoEffects = photoIntegration.photo_effects || 'subtle drop shadows and depth';
+  
+  // Composition structure
+  const visualWeight = compositionStructure.visual_weight || 'balanced professional distribution';
+  const focalAreas = compositionStructure.focal_areas || 'center-focused with supporting elements';
+  const spaceUsage = compositionStructure.space_usage || 'balanced asymmetrical composition';
+  const textOverlayZones = compositionStructure.text_overlay_zones || 'left and right thirds optimized';
+  const visualBreathing = compositionStructure.visual_breathing_room || 'generous professional spacing';
+  
+  // Brand personality
   const visualTone = brandPersonality.visual_tone || 'professional and modern';
   const sophistication = brandPersonality.sophistication_level || 'high professional standard';
+  const approachability = brandPersonality.approachability || 'welcoming and professional';
+  const emotionalImpact = brandPersonality.emotional_impact || 'trust and innovation';
+  
+  // Background enhancement potential
+  const missingWow = backgroundEnhancement.missing_wow_elements || 'modern visual impact elements';
+  const modernUpgrade = backgroundEnhancement.modern_upgrade_opportunities || 'contemporary design trends';
+  const depthEnhancement = backgroundEnhancement.depth_enhancement_suggestions || 'dimensional layering';
+  const colorIntensity = backgroundEnhancement.color_intensity_improvements || 'vibrant professional drama';
+  const textureEnrichment = backgroundEnhancement.texture_enrichment_possibilities || 'premium surface treatments';
+  const lightingDrama = backgroundEnhancement.lighting_drama_potential || 'sophisticated lighting effects';
 
-  const prompt = `Create a stunning, scroll-stopping e-commerce banner for ${partnerName} that combines the styles of the brand with the product image in a modern visual impact with professional sophistication.
+  const prompt = `Create a stunning, scroll-stopping e-commerce banner for ${partnerName} that combines sophisticated brand style analysis with modern visual impact for maximum engagement and conversion.
 
 CRITICAL INSTRUCTIONS:
-- ABSOLUTELY NO TEXT, letters, numbers, words, or symbols anywhere in the image
-- NO logos, brand names, or readable content
-- Product image should be in the center of the banner, no bigger than 30% of the banner width.
-- Focus on creating a visually compelling design that naturally integrates backgroudn with the product.
+- ABSOLUTELY NO LOGOS, TEXT, letters, numbers, words, or symbols anywhere in the image
+- Image attaced must be CENTERED IN THE MIDDLE AND RESIZED to EXACTLY 30%, 500px, of banner width (not larger)
+- Apply brand-specific style while enhancing with modern visual impact elements
 
-<product_integration>
-Only consider the product image description, not its background color.
-Product Description: ${productDescription}
-Product Positioning: Centered in banner composition
-Product Scale: Maximum 30% of total banner width
-Background Relationship: Background should enhance and complement product colors
-Shadow Treatment: Subtle drop shadow for depth and natural integration
-</product_integration>
+<image_processing>
+${productDescription}
+EXTRACT/ISOLATE the product from its current background completely.
+COMPLETELY DISCARD the original background colors and design elements.
+DO NOT use any colors, gradients, or design elements from the original image background.
+Apply design elements for natural integration with the new background.
+Use ${photoTreatment} for premium visual quality
+</image_processing>
 
-<design_elements>
-Geometric Style: ${geometricElements} with minimal professional approach
-Visual Effects: ${dimensionalEffects} applied subtly for depth
-Pattern Approach: Clean, minimal, abstract patterns only
-Border Treatment: Professional clean edges
-Surface Quality: Smooth, professional finish suitable for commercial use
-</design_elements>
-
-<design_foundation>
+<enhanced_design_foundation>
 Visual Style: ${visualTone} with ${sophistication} execution
-Color Palette: ${primaryColors} (dominant 60%), ${accentColors} (accent 30%)
-Color Temperature: ${colorTemp} with saturation
-Background Type: ${backgroundType} with modern enhancement
-Gradient Direction: ${gradientDetails} with seamless professional transitions
-Atmosphere: ${atmosphereStyle} with contemporary visual impact
-Apply modern trends for cutting-edge appeal
-</design_foundation>
+Emotional Impact: ${emotionalImpact} with ${approachability} accessibility
+Color Palette: ${primaryColors} (dominant 60%), ${accentColors} (accent 30%), ${secondaryColors} (supporting 10%)
+Color Temperature: ${colorTemp} with enhanced saturation
+Color Contrast Strategy: ${colorContrast} for maximum visual impact
+Background Type: ${backgroundType} with ${modernUpgrade} enhancements
+Gradient Sophistication: ${gradientSophistication} with ${gradientDetails}
+Atmosphere: ${atmosphereStyle} with ${environmentalElements} integration
+Surface Quality: ${textureDetails} enhanced with ${textureSophistication}
+</enhanced_design_foundation>
 
-<layout_zones>
-Product Zone: Center (30% of banner), natural integration with background
-Text Overlay Zones: Left and right thirds (35% each), high contrast areas optimized for text
-Background Flow: ${gradientDetails} with seamless professional transitions
-Visual Depth: ${dimensionalEffects} applied strategically for modern appeal
-Breathing Room: 5% margin around product for comfortable composition
-Balance: Symmetrical weight distribution with product as focal anchor
-</layout_zones>
+<wow_factor_implementation>
+Dynamic Elements: ${dynamicElements} for movement and energy
+Modern Trends: ${modernTrends} for cutting-edge appeal
+Depth Illusions: ${depthIllusions} for dimensional interest
+Light & Shadow: ${lightShadow} enhanced with ${lightingDrama}
+Color Drama: ${colorDrama} for ${colorIntensity} visual impact
+Missing Elements: Integrate ${missingWow} for enhanced appeal
+Depth Enhancement: Apply ${depthEnhancement} for professional depth
+Texture Enrichment: Implement ${textureEnrichment} for premium feel
+</wow_factor_implementation>
+
+<precision_design_elements>
+Geometric Style: ${geometricElements} with professional precision
+Pattern Integration: ${patternDetails} applied subtly for sophistication
+Dimensional Effects: ${dimensionalEffects} strategically placed
+Iconographic Elements: ${iconographicElements} for brand personality
+Visual Effects: Modern enhancement while maintaining ${sophistication}
+Border Treatment: Clean professional edges with subtle ${dimensionalEffects}
+Surface Quality: Premium finish suitable for high-end commercial use
+</precision_design_elements>
 
 <final_requirements>
-Create a sophisticated banner background design that captures the brand's visual essence through color, texture, and subtle design elements. The result must be a clean foundation suitable for overlay text and graphics, without any literal or recognizable elements.
+Create a sophisticated banner background design that captures the brand's complete visual DNA through comprehensive style analysis. Integrate modern visual impact elements while maintaining brand authenticity. The result must be a premium foundation suitable for overlay text and graphics, leveraging all analyzed style elements for maximum conversion potential.
 </final_requirements>`;
 
   return prompt;
@@ -854,7 +901,7 @@ export async function generateBannerImageWithFlux(
       height: targetDimensions.height,
       prompt_upsampling: false,
       seed: null,
-      safety_tolerance: 6, // Increased to be more permissive and reduce weird rejections
+      safety_tolerance: 1, // Increased to be more permissive and reduce weird rejections
       output_format: 'png',
       image_prompt: selectedImageBase64 // Use product image as compositional reference only
     };
