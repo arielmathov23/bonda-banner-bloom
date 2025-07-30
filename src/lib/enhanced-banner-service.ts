@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { analyzeProductImage } from './product-analysis';
 import { generateBannerBackground } from './flux-background';
+import { generateProductCutout } from './flux-product';
 import { removeProductBackground, validateImageForProcessing, preloadBackgroundRemovalAssets, getPerformanceInfo } from './background-removal';
 import { toast } from '@/hooks/use-toast';
 
@@ -100,7 +101,6 @@ export async function createEnhancedBanner(
     console.log('Step 3: Generating enhanced product image with Flux...');
     onProgress?.(35, 'Generando producto mejorado con IA...');
 
-    const { generateProductCutout } = await import('./flux-product');
     const enhancedProduct = await generateProductCutout(
       request.productImageFile,
       productAnalysis.productDescription,

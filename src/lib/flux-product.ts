@@ -206,9 +206,9 @@ class FluxAPIClient {
     
     console.log(`🔳 [STEP B] getResult called with taskId: ${taskId}, pollingUrl: ${pollingUrl}`);
     
-    if (pollingUrl && pollingUrl.includes('api.bfl.ai/v1')) {
+    if (pollingUrl && (pollingUrl.includes('api.bfl.ai/v1') || pollingUrl.includes('api.us1.bfl.ai/v1'))) {
       // Convert external polling URL to use our proxy
-      url = pollingUrl.replace('https://api.bfl.ai/v1', this.baseUrl);
+      url = pollingUrl.replace('https://api.bfl.ai/v1', this.baseUrl).replace('https://api.us1.bfl.ai/v1', this.baseUrl);
       console.log(`🔳 [STEP B] Using external polling URL converted to proxy: ${url}`);
     } else {
       // Fallback: construct get_result URL through proxy
