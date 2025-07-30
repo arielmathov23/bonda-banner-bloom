@@ -100,4 +100,26 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          // Force all flux modules into main bundle to prevent code splitting issues
+          if (id.includes('flux-product') || id.includes('flux-background') || id.includes('flux.ts') || id.includes('enhanced-banner-service')) {
+            return 'index';
+          }
+          // Keep node_modules in vendor chunk
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+        },
+      },
+    },
+    // Increase chunk size warning limit for large modules
+    chunkSizeWarningLimit: 2000,
+    // Disable dynamic imports for critical modules
+    dynamicImportVarsOptions: {
+      exclude: [/flux/]
+    },
+  },
 }));
