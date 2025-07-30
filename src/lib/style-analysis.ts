@@ -12,64 +12,63 @@ export interface StyleAnalysis {
       dominant_colors: string;
       accent_colors: string;
       secondary_colors: string;
-      color_intensity: string;
       color_temperature: string;
-      color_harmony: string;
-      brand_color_usage: string;
+      gradient_sophistication: string;
+      color_contrast_strategy: string;
     };
     background_treatment: {
       base_type: string;
       gradient_details: string;
       environmental_elements: string;
-      depth_treatment: string;
-      overlay_treatment: string;
       texture_details: string;
-      lighting_approach: string;
       atmosphere_style: string;
+    };
+    wow_factor_elements: {
+      dynamic_background_elements: string;
+      modern_trends_applied: string;
+      depth_illusions: string;
+      light_and_shadow: string;
+      texture_sophistication: string;
+      color_drama: string;
     };
     design_components: {
       geometric_elements: string;
-      decorative_elements: string;
-      structural_lines: string;
       pattern_details: string;
       dimensional_effects: string;
-      border_treatments: string;
-      accent_graphics: string;
       iconographic_elements: string;
     };
     photo_integration: {
-      person_placement: string;
+      person_or_product_placement: string;
       photo_background_blend: string;
       photo_treatment: string;
       scale_relationship: string;
-      cutout_style: string;
       photo_effects: string;
-      integration_quality: string;
+      product_scale_optimization: string;
+      positioning_strategy: string;
     };
     composition_structure: {
       visual_weight: string;
       focal_areas: string;
       space_usage: string;
       layout_grid: string;
-      hierarchy_flow: string;
-      balance_approach: string;
       negative_space: string;
+      text_overlay_zones: string;
+      visual_breathing_room: string;
     };
     brand_personality: {
       visual_tone: string;
-      sophistication_level: string;
-      energy_level: string;
       approachability: string;
       innovation_vs_tradition: string;
-      premium_vs_accessible: string;
+      emotional_impact: string;
     };
-    technical_specifications: {
-      aspect_ratio: string;
-      resolution_quality: string;
-      color_profile: string;
-      contrast_levels: string;
-      saturation_approach: string;
-      sharpness_style: string;
+    background_enhancement_potential: {
+      missing_wow_elements: string;
+      modern_upgrade_opportunities: string;
+      depth_enhancement_suggestions: string;
+      color_intensity_improvements: string;
+      texture_enrichment_possibilities: string;
+      lighting_drama_potential: string;
+      composition_optimization: string;
     };
   };
 }

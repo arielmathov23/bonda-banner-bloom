@@ -80,41 +80,73 @@ async function imageToBase64(file: File): Promise<string> {
 }
 
 /**
- * Generate detailed product description from image using OpenAI Vision
+ * Extract style information from product image for background generation
  */
-export async function analyzeProductImage(imageFile: File): Promise<string> {
+export async function analyzeProductImage(imageFile: File): Promise<{
+  productDescription: string;
+  styleInfo: {
+    dominantColors: string[];
+    accentColors: string[];
+    colorTemperature: 'warm' | 'cool' | 'neutral';
+    materialFinish: string;
+    visualStyle: string;
+    backgroundCompatibility: {
+      recommendedColors: string[];
+      avoidColors: string[];
+      patternSuggestions: string[];
+    };
+  };
+}> {
   try {
-    console.log('Starting product image analysis with OpenAI Vision...');
+    console.log('🎨 Starting product style analysis with OpenAI Vision...');
 
     // Convert image to base64
     const base64Image = await imageToBase64(imageFile);
 
-    const prompt = `You are a professional product marketing analyst. Analyze this product image and provide a detailed description optimized for AI banner generation.
+    const prompt = `Analyze this product image and extract STYLE INFORMATION for banner background generation.
 
-      ANALYZE AND DESCRIBE:
-      - Product type, category, and premium positioning
-      - Do not describe image background style and colors, only the product in terms of features, design.
-      - Key design features, form factor, and visual appeal elements
-      - Lighting, shadows, and photographic presentation quality
-      - Target market appeal and brand positioning indicators
+EXTRACT STYLE DATA (Return as JSON):
+{
+  "productDescription": "Brief product name and category (max 50 words)",
+  "styleInfo": {
+    "dominantColors": ["#hex1", "#hex2", "#hex3"],
+    "accentColors": ["#hex1", "#hex2"],
+    "colorTemperature": "warm|cool|neutral",
+    "materialFinish": "matte|glossy|metallic|fabric|plastic|glass|wood",
+    "visualStyle": "modern|classic|luxury|minimalist|industrial|organic",
+    "backgroundCompatibility": {
+      "recommendedColors": ["#hex1", "#hex2", "#hex3"],
+      "avoidColors": ["#hex1", "#hex2"],
+      "patternSuggestions": ["geometric", "gradient", "solid", "textured"]
+    }
+  }
+}
 
-      BANNER INTEGRATION REQUIREMENTS:
-      - Compatible background colors that enhance the product's visual appeal
-      - Shadow/lighting needs for natural integration
-      - Text overlay zones that work with product placement
+FOCUS ON:
+- Extract exact HEX colors from the product (#RRGGBB format)
+- Identify complementary colors for background
+- Suggest pattern styles that enhance the product
+- Determine warm/cool temperature
+- Avoid colors that clash with the product
 
-      OUTPUT FORMAT:
-      Single comprehensive paragraph (250-350 words) covering:
-      1. Product identity and premium positioning
-      2. Detailed visual characteristics (colors, materials, design)
-      3. Banner integration specifications (size, position, background compatibility)
-      4. Target audience and marketing appeal
-      5. Technical quality and presentation style
+EXAMPLE OUTPUT:
+{
+  "productDescription": "Premium rose gold smartphone with metallic finish",
+  "styleInfo": {
+    "dominantColors": ["#E8B4A0", "#D4A574", "#C19A6B"],
+    "accentColors": ["#F4E4D6", "#8B7355"],
+    "colorTemperature": "warm",
+    "materialFinish": "metallic",
+    "visualStyle": "luxury",
+    "backgroundCompatibility": {
+      "recommendedColors": ["#F5F1EB", "#E6DDD4", "#D2C2B0"],
+      "avoidColors": ["#0066CC", "#FF1493", "#00FF00"],
+      "patternSuggestions": ["gradient", "subtle geometric", "soft texture"]
+    }
+  }
+}
 
-      EXAMPLE:
-      "Premium flagship smartphone in rose gold finish (#E8B4A0) with precision-machined aluminum frame and mirror-polished edges. Features sophisticated champagne-colored back panel with subtle texture variations and geometric camera array creating visual interest. Professional studio photography with controlled lighting and minimal shadows. Requires warm-toned backgrounds (cream, soft gold, neutrals) to enhance metallic finish. Casts natural shadows requiring subtle drop shadow in banner. Appeals to affluent professionals aged 25-45 seeking luxury technology. High visual weight demands balanced background elements. Text overlay works best in upper-left and lower-left quadrants. Excellent detail retention for large-format banner reproduction."
-
-      Focus on elements that directly impact banner design decisions and AI generation quality.`;
+Return ONLY valid JSON.`;
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini", // Using gpt-4o-mini for vision capabilities
@@ -136,19 +168,49 @@ export async function analyzeProductImage(imageFile: File): Promise<string> {
           ]
         }
       ],
-      max_tokens: 400,
-      temperature: 0.3, // Lower temperature for more consistent, factual descriptions
+      max_tokens: 500,
+      temperature: 0.3, // Very low temperature for consistent JSON output
     });
 
-    const description = response.choices[0]?.message?.content;
-    if (!description) {
-      throw new Error('No description generated from OpenAI');
+    const jsonResponse = response.choices[0]?.message?.content;
+    if (!jsonResponse) {
+      throw new Error('No response generated from OpenAI');
     }
 
-    console.log('Product analysis completed successfully');
-    console.log('Generated description:', description);
+    console.log('🎨 Raw OpenAI response:', jsonResponse);
 
-    return description.trim();
+    // Parse the JSON response (handle markdown code blocks)
+    let parsedResponse;
+    try {
+      // Remove markdown code blocks if present
+      let cleanJson = jsonResponse.trim();
+      
+      // Check if response is wrapped in markdown code blocks
+      if (cleanJson.startsWith('```json') || cleanJson.startsWith('```')) {
+        console.log('🎨 Detected markdown code blocks, cleaning JSON...');
+        // Remove opening code block
+        cleanJson = cleanJson.replace(/^```(?:json)?\s*\n?/, '');
+        // Remove closing code block
+        cleanJson = cleanJson.replace(/\n?\s*```\s*$/, '');
+        console.log('🎨 Cleaned JSON:', cleanJson.substring(0, 200) + '...');
+      }
+      
+      parsedResponse = JSON.parse(cleanJson);
+    } catch (parseError) {
+      console.error('❌ Failed to parse JSON response:', jsonResponse);
+      console.error('❌ Parse error:', parseError);
+      throw new Error(`Invalid JSON response from OpenAI: ${parseError}`);
+    }
+
+    // Validate the response structure
+    if (!parsedResponse.styleInfo || !parsedResponse.productDescription) {
+      throw new Error('Invalid response structure from OpenAI');
+    }
+
+    console.log('🎨 Product style analysis completed successfully');
+    console.log('🎨 Extracted style info:', parsedResponse.styleInfo);
+
+    return parsedResponse;
 
   } catch (error) {
     console.error('Error analyzing product image:', error);

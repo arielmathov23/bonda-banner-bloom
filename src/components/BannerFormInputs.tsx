@@ -264,11 +264,27 @@ const BannerFormInputs = ({
             id="bannerCopy"
             value={bannerCopy}
             onChange={(e) => setBannerCopy(e.target.value)}
-            placeholder="ej. Descubre los mejores productos para tu hogar"
-            maxLength={150}
-                className="min-h-[80px] resize-none border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
+            placeholder="ej. Descubre productos para tu hogar"
+            maxLength={28}
+                className={`min-h-[80px] resize-none ${
+                  bannerCopy.length >= 28 ? 'border-red-500 focus:border-red-500' :
+                  bannerCopy.length >= 24 ? 'border-orange-400 focus:border-orange-400' :
+                  'border-gray-200 focus:border-violet-400'
+                } focus:ring-1 focus:ring-violet-200`}
           />
-          <div className="text-xs text-gray-500 text-right">{bannerCopy.length}/150</div>
+          <div className={`text-xs text-right flex items-center justify-between ${
+            bannerCopy.length >= 28 ? 'text-red-600' :
+            bannerCopy.length >= 24 ? 'text-orange-600' :
+            'text-gray-500'
+          }`}>
+            {bannerCopy.length >= 28 && (
+              <span className="text-red-600 text-xs">⚠️ Límite alcanzado</span>
+            )}
+            {bannerCopy.length >= 24 && bannerCopy.length < 28 && (
+              <span className="text-orange-600 text-xs">⚠️ Cerca del límite</span>
+            )}
+            <span>{bannerCopy.length}/28</span>
+          </div>
         </div>
 
         {/* CTA Copy */}
@@ -279,10 +295,26 @@ const BannerFormInputs = ({
             value={ctaCopy}
             onChange={(e) => setCtaCopy(e.target.value)}
             placeholder="ej. Comprar Ahora"
-            maxLength={25}
-                className="h-11 border-gray-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200"
+            maxLength={14}
+                className={`h-11 ${
+                  ctaCopy.length >= 14 ? 'border-red-500 focus:border-red-500' :
+                  ctaCopy.length >= 12 ? 'border-orange-400 focus:border-orange-400' :
+                  'border-gray-200 focus:border-violet-400'
+                } focus:ring-1 focus:ring-violet-200`}
           />
-          <div className="text-xs text-gray-500 text-right">{ctaCopy.length}/25</div>
+          <div className={`text-xs text-right flex items-center justify-between ${
+            ctaCopy.length >= 14 ? 'text-red-600' :
+            ctaCopy.length >= 12 ? 'text-orange-600' :
+            'text-gray-500'
+          }`}>
+            {ctaCopy.length >= 14 && (
+              <span className="text-red-600 text-xs">⚠️ Límite alcanzado</span>
+            )}
+            {ctaCopy.length >= 12 && ctaCopy.length < 14 && (
+              <span className="text-orange-600 text-xs">⚠️ Cerca del límite</span>
+            )}
+            <span>{ctaCopy.length}/14</span>
+          </div>
             </div>
           </div>
 

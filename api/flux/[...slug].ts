@@ -1,4 +1,4 @@
-module.exports = async function handler(req: any, res: any) {
+export default async function handler(req: any, res: any) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -31,26 +31,36 @@ module.exports = async function handler(req: any, res: any) {
     path = slugParam as string;
   }
   
+  // Get query string from original request
+  const queryString = req.url?.includes('?') ? req.url.split('?')[1] : '';
+  
+  console.log('=== FLUX DYNAMIC ROUTE DEBUG ===');
   console.log('Dynamic route - extracted path:', path);
+  console.log('Full request URL:', req.url);
+  console.log('Query string:', queryString);
+  console.log('Method:', req.method);
   
   // Determine target URL
   let targetUrl = '';
+  
   if (path === 'flux-pro-1.1' || path.startsWith('flux-pro-1.1')) {
     targetUrl = 'https://api.bfl.ai/v1/flux-pro-1.1';
-  } else if (path.startsWith('get_result')) {
-    targetUrl = `https://api.bfl.ai/v1/get_result${req.url?.includes('?') ? '?' + req.url.split('?')[1] : ''}`;
+  } else if (path === 'get_result' || path.startsWith('get_result')) {
+    // Handle get_result with query parameters properly
+    targetUrl = `https://api.bfl.ai/v1/get_result${queryString ? '?' + queryString : ''}`;
   } else if (path.includes('result')) {
     const resultId = path.split('/').pop();
     targetUrl = `https://api.bfl.ai/v1/get_result?id=${resultId}`;
   } else {
     return res.status(400).json({
-      error: 'Invalid API endpoint',
-      details: `Unknown path: ${path}`
+      error: 'Invalid API endpoint', 
+      details: `Unknown path: ${path}, full URL: ${req.url}`
     });
   }
 
-  console.log(`Proxying request to: ${targetUrl}`);
-  console.log(`Method: ${req.method}`);
+  console.log(`Final target URL: ${targetUrl}`);
+  console.log(`Proxying ${req.method} request to: ${targetUrl}`);
+  console.log('=== END FLUX DYNAMIC ROUTE DEBUG ===');
 
   try {
     // Prepare headers for the Flux API

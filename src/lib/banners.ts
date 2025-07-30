@@ -23,7 +23,31 @@ export async function uploadImageToStorage(
   bucketName: string = 'banners'
 ): Promise<string> {
   try {
-    console.log('Uploading image to storage:', imageUrl);
+    console.log('🚀 Starting uploadImageToStorage:', { imageUrl, fileName, bucketName });
+    
+    // Quick bucket verification (non-blocking)
+    try {
+      const { data: buckets, error: listError } = await supabase.storage.listBuckets();
+      
+      if (listError) {
+        console.warn('⚠️ Cannot list buckets (permission issue):', listError.message);
+        console.log('🪣 Proceeding with upload anyway - bucket might exist but be unlisted');
+      } else {
+        const bucketExists = buckets?.some(b => b.id === bucketName);
+        console.log('🪣 Bucket verification:', { 
+          bucketName, 
+          exists: bucketExists, 
+          availableBuckets: buckets?.map(b => b.id) || []
+        });
+        
+        if (!bucketExists) {
+          console.warn(`⚠️ Bucket '${bucketName}' not found in list. This might be a permissions issue or bucket may not exist.`);
+          console.log('📋 Run create_banners_bucket_complete.sql if uploads fail');
+        }
+      }
+    } catch (bucketError) {
+      console.warn('⚠️ Bucket verification failed (proceeding anyway):', bucketError instanceof Error ? bucketError.message : String(bucketError));
+    }
     
     let imageBlob: Blob;
     
@@ -38,8 +62,10 @@ export async function uploadImageToStorage(
       console.log('Detected external URL, using proxy with canvas conversion...');
       
       try {
+        console.log('🎨 Trying canvas conversion method...');
         // Use the CORS helper to load the image via proxy
         const img = await loadImageWithProxy(imageUrl);
+        console.log('🎨 Image loaded via proxy:', { width: img.width, height: img.height });
         
         // Convert to canvas and then to blob
         const canvas = document.createElement('canvas');
@@ -52,11 +78,13 @@ export async function uploadImageToStorage(
         canvas.width = img.width;
         canvas.height = img.height;
         ctx.drawImage(img, 0, 0);
+        console.log('🎨 Image drawn to canvas');
         
         // Convert canvas to blob
         imageBlob = await new Promise((resolve, reject) => {
           canvas.toBlob((blob) => {
             if (blob) {
+              console.log('🎨 Canvas converted to blob:', { type: blob.type, size: blob.size });
               resolve(blob);
             } else {
               reject(new Error('Failed to convert canvas to blob'));
@@ -64,22 +92,89 @@ export async function uploadImageToStorage(
           }, 'image/png', 0.95);
         });
         
-        console.log('Successfully converted external image to blob via canvas');
+        console.log('✅ Successfully converted external image to blob via canvas');
       } catch (canvasError) {
-        console.warn('Canvas conversion failed, trying direct proxy fetch:', canvasError);
+        console.warn('⚠️ Canvas conversion failed, trying direct proxy fetch:', canvasError);
         
-        // Fallback to direct proxy fetch
+        // Try direct fetch with better error handling
         try {
-          const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(imageUrl)}`;
-          const response = await fetch(proxyUrl);
-          if (!response.ok) {
-            throw new Error(`Proxy fetch failed: ${response.statusText}`);
+          console.log('🔄 Attempting direct fetch (no proxy)...');
+          
+          // First, let's try to fetch directly and see what happens
+          const directResponse = await fetch(imageUrl, {
+            mode: 'no-cors', // This bypasses CORS but limits what we can read
+            cache: 'no-cache',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (compatible; BannerApp/1.0)',
+              'Accept': 'image/png,image/jpeg,image/*,*/*'
+            }
+          });
+          
+          if (directResponse.type === 'opaque') {
+            console.log('🔄 Got opaque response (CORS blocked), trying alternative method...');
+            
+            // For opaque responses, we can't read the content, so let's try a different approach
+            // Create a temporary image element to load the image
+            const tempImg = new Image();
+            tempImg.crossOrigin = 'anonymous';
+            
+            const imageLoadPromise = new Promise((resolve, reject) => {
+              tempImg.onload = () => {
+                console.log('🔄 Image loaded successfully via img element');
+                
+                // Convert to canvas and then to blob
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                if (!ctx) {
+                  reject(new Error('Could not create canvas context'));
+                  return;
+                }
+                
+                canvas.width = tempImg.width;
+                canvas.height = tempImg.height;
+                ctx.drawImage(tempImg, 0, 0);
+                
+                canvas.toBlob((blob) => {
+                  if (blob) {
+                    resolve(blob);
+                  } else {
+                    reject(new Error('Failed to convert image to blob'));
+                  }
+                }, 'image/png', 0.95);
+              };
+              
+              tempImg.onerror = () => {
+                reject(new Error('Failed to load image via img element'));
+              };
+              
+              // Set a timeout to avoid hanging
+              setTimeout(() => {
+                reject(new Error('Image load timeout'));
+              }, 30000);
+            });
+            
+            tempImg.src = imageUrl;
+            imageBlob = await imageLoadPromise as Blob;
+            
+          } else {
+            // Regular response, we can read it
+            console.log('🔄 Got regular response, reading as blob...');
+            imageBlob = await directResponse.blob();
           }
-          imageBlob = await response.blob();
-          console.log('Successfully fetched image via direct proxy');
-        } catch (proxyError) {
-          console.error('Both canvas and proxy methods failed:', proxyError);
-          throw new Error(`Failed to fetch image from external source: ${proxyError.message}`);
+          
+          console.log('✅ Successfully fetched image via direct method:', {
+            type: imageBlob.type,
+            size: imageBlob.size
+          });
+          
+        } catch (directError) {
+          console.error('❌ Direct fetch failed:', directError);
+          
+          // Final fallback: try to use the image URL as-is and hope for the best
+          console.log('🔄 Final fallback: creating minimal blob...');
+          
+          throw new Error(`All image fetch methods failed. URL may be expired or inaccessible: ${imageUrl}. Original error: ${directError.message}`);
         }
       }
     } else {
@@ -92,27 +187,47 @@ export async function uploadImageToStorage(
       imageBlob = await response.blob();
     }
     
-    console.log('Image blob created, size:', imageBlob.size, 'bytes');
+    console.log('📤 Final image blob for upload:', {
+      size: imageBlob.size,
+      type: imageBlob.type,
+      fileName: fileName,
+      bucketName: bucketName
+    });
+    
+    // Ensure we have a proper content type
+    const finalContentType = imageBlob.type || 'image/png';
+    console.log('📤 Using content type:', finalContentType);
     
     // Upload to Supabase Storage
+    console.log('📤 Starting Supabase Storage upload...');
     const { data, error } = await supabase.storage
       .from(bucketName)
       .upload(fileName, imageBlob, {
-        contentType: imageBlob.type || 'image/png',
+        contentType: finalContentType,
         upsert: true
       });
 
     if (error) {
-      console.error('Error uploading image to Supabase:', error);
+      console.error('❌ Error uploading image to Supabase:', error);
+      console.error('Upload details:', { fileName, bucketName, blobSize: imageBlob.size, contentType: finalContentType });
       throw error;
     }
+
+    console.log('✅ Upload successful! Supabase response:', data);
 
     // Get the public URL
     const { data: publicUrlData } = supabase.storage
       .from(bucketName)
       .getPublicUrl(data.path);
 
-    console.log('Image uploaded successfully to:', publicUrlData.publicUrl);
+    console.log('✅ Image uploaded successfully to:', publicUrlData.publicUrl);
+    console.log('🔍 Final upload summary:', {
+      originalUrl: imageUrl,
+      fileName: fileName,
+      finalUrl: publicUrlData.publicUrl,
+      blobSize: imageBlob.size,
+      contentType: finalContentType
+    });
     return publicUrlData.publicUrl;
   } catch (error) {
     console.error('Error in uploadImageToStorage:', error);

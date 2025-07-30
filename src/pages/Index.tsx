@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Image, Plus, History, ChevronRight, Wand2 } from 'lucide-react';
+import { Users, Image, Plus, History, ChevronRight, Wand2, Edit2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -41,6 +41,18 @@ const Index = () => {
   useEffect(() => {
     console.log('activeSection changed to:', activeSection);
   }, [activeSection]);
+
+  // Handle reset banner editor event from sidebar
+  useEffect(() => {
+    const handleResetBannerEditor = () => {
+      console.log('Resetting banner editor state...');
+      setEditingBanner(null);
+      setSelectedPartnerId('');
+    };
+
+    window.addEventListener('resetBannerEditor', handleResetBannerEditor);
+    return () => window.removeEventListener('resetBannerEditor', handleResetBannerEditor);
+  }, []);
 
   const stats = [
     { title: 'Socios Totales', value: partners.length.toString(), icon: Users },
@@ -219,8 +231,26 @@ const Index = () => {
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {recentBanners.map((banner: any, index: number) => (
-                      <div key={banner.id || index} className="group relative">
-                        <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+                      <div 
+                        key={banner.id || index} 
+                        className="group relative cursor-pointer transition-all duration-200 hover:scale-105"
+                        onClick={() => {
+                          console.log('Editing banner from recent banners:', banner);
+                          handleEditBanner({
+                            id: banner.id,
+                            partnerId: banner.partner_id,
+                            partner_id: banner.partner_id,
+                            partner: partners.find(p => p.id === banner.partner_id)?.name || 'Sin socio',
+                            partner_name: partners.find(p => p.id === banner.partner_id)?.name || 'Sin socio',
+                            main_text: banner.main_text,
+                            banner_title: banner.banner_title,
+                            title: banner.banner_title,
+                            description_text: banner.description_text,
+                            cta_text: banner.cta_text
+                          });
+                        }}
+                      >
+                        <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden relative">
                           {banner.image_url ? (
                             <img 
                               src={banner.image_url} 
@@ -238,9 +268,16 @@ const Index = () => {
                           <div className="w-full h-full flex items-center justify-center bg-gray-100 hidden">
                             <Image className="w-12 h-12 text-gray-400" />
                           </div>
+                          
+                          {/* Subtle edit overlay */}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 flex items-center justify-center">
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 rounded-full p-2">
+                              <Edit2 className="w-4 h-4 text-gray-700" />
+                            </div>
+                          </div>
                         </div>
                         <div className="mt-2">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-medium text-gray-900 truncate group-hover:text-violet-600 transition-colors duration-200">
                             {banner.banner_title || `Banner ${index + 1}`}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -326,7 +363,7 @@ const Index = () => {
           
           return (
             <BannerEditor
-              backgroundImageUrl={editingBanner.imageUrl || editingBanner.image_url || ""} // Support both formats
+              backgroundImageUrl="" // Let BannerEditor load from database to get both background AND product images
               partnerId={editingBanner.partnerId || editingBanner.partner_id || ""}
               partnerName={editingBanner.partner || editingBanner.partner_name || ""}
               partnerLogoUrl={partner?.logo_url}
@@ -337,7 +374,7 @@ const Index = () => {
               onExit={() => setActiveSection('banner-list')}
               onSave={(composition) => {
                 console.log('Banner composition saved:', composition);
-                setActiveSection('banner-list');
+                // Don't auto-close - let user decide when to exit
               }}
             />
           );

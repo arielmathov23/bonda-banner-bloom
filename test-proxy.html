@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Proxy Test</title>
+</head>
+<body>
+    <h1>Testing Vite Image Proxy</h1>
+    <button onclick="testProxy()">Test Proxy</button>
+    <div id="results"></div>
+    
+    <script>
+        async function testProxy() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<p>Testing proxy...</p>';
+            
+            // Use a simple test image URL
+            const testImageUrl = 'https://httpbin.org/image/png';
+            const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(testImageUrl)}`;
+            
+            try {
+                console.log('Testing proxy URL:', proxyUrl);
+                
+                const response = await fetch(proxyUrl);
+                
+                console.log('Proxy response:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    contentType: response.headers.get('content-type')
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imgUrl = URL.createObjectURL(blob);
+                    
+                    results.innerHTML = `
+                        <p>✅ Proxy working!</p>
+                        <p>Status: ${response.status}</p>
+                        <p>Content-Type: ${response.headers.get('content-type')}</p>
+                        <p>Size: ${blob.size} bytes</p>
+                        <img src="${imgUrl}" style="max-width: 200px;" />
+                    `;
+                } else {
+                    const text = await response.text();
+                    results.innerHTML = `
+                        <p>❌ Proxy failed</p>
+                        <p>Status: ${response.status}</p>
+                        <p>Response: ${text.substring(0, 300)}</p>
+                    `;
+                }
+                
+            } catch (error) {
+                console.error('Proxy test error:', error);
+                results.innerHTML = `
+                    <p>❌ Error: ${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html> 

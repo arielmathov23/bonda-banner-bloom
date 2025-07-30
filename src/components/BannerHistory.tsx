@@ -77,8 +77,8 @@ const BannerHistory = ({ partnerId, partnerName, onCreateBanner, onEditBanner }:
         createdAt: new Date(banner.created_at),
         status: 'completed' as const,
         dimensions: '1440x338', // Desktop banners
-        // Primary image URL - works for both old and enhanced banners
-        imageUrl: banner.desktop_url || banner.image_url,
+        // Primary image URL - supports 3-layer banners with fallback to legacy
+        imageUrl: banner.background_image_url || banner.desktop_url || banner.image_url,
         mobileUrl: banner.mobile_url,
         // Enhanced banner data for editor
         main_text: banner.main_text,

@@ -15,7 +15,7 @@ export type Database = {
           created_at: string
           id: string
           image_type: string
-          image_url: string
+          image_url: string | null
           partner_id: string
           prompt_used: string | null
           product_description: string | null
@@ -23,13 +23,18 @@ export type Database = {
           description_text: string | null
           cta_text: string | null
           discount_percentage: number | null
+          background_image_url: string | null
+          product_image_url: string | null
+          background_prompt: string | null
+          product_prompt: string | null
+          composition_data: Json | null
         }
         Insert: {
           banner_title?: string | null
           created_at?: string
           id?: string
           image_type: string
-          image_url: string
+          image_url?: string | null
           partner_id: string
           prompt_used?: string | null
           product_description?: string | null
@@ -37,13 +42,18 @@ export type Database = {
           description_text?: string | null
           cta_text?: string | null
           discount_percentage?: number | null
+          background_image_url?: string | null
+          product_image_url?: string | null
+          background_prompt?: string | null
+          product_prompt?: string | null
+          composition_data?: Json | null
         }
         Update: {
           banner_title?: string | null
           created_at?: string
           id?: string
           image_type?: string
-          image_url?: string
+          image_url?: string | null
           partner_id?: string
           prompt_used?: string | null
           product_description?: string | null
@@ -51,6 +61,11 @@ export type Database = {
           description_text?: string | null
           cta_text?: string | null
           discount_percentage?: number | null
+          background_image_url?: string | null
+          product_image_url?: string | null
+          background_prompt?: string | null
+          product_prompt?: string | null
+          composition_data?: Json | null
         }
         Relationships: [
           {

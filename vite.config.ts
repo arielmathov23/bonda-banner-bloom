@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
           });
         },
       },
-      // Add proxy for external images to bypass CORS
+      // Add proxy for external images to bypass CORS  
       '/api/proxy-image': {
         target: 'https://delivery-us1.bfl.ai',
         changeOrigin: true,
@@ -42,6 +42,49 @@ export default defineConfig(({ mode }) => ({
             proxyReq.setHeader('Access-Control-Allow-Origin', '*');
             proxyReq.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
             proxyReq.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+          });
+        },
+      },
+      // Universal image proxy - proxy to external image URLs
+      '/api/image-proxy': {
+        target: 'https://delivery-us1.bfl.ai', // Default target, will be overridden
+        changeOrigin: true,
+        configure: (proxy, _options) => {
+          proxy.on('proxyReq', (proxyReq, req, _res) => {
+            // Extract the actual URL from the query parameter
+            try {
+              const url = new URL(req.url!, 'http://localhost:8080');
+              const targetUrl = url.searchParams.get('url');
+              
+              if (targetUrl) {
+                console.log('🖼️ Proxying image request to:', targetUrl);
+                
+                // Parse the target URL to get host and path
+                const target = new URL(targetUrl);
+                
+                // Update the proxy request to go to the actual target
+                proxyReq.host = target.host;
+                proxyReq.path = target.pathname + target.search;
+                proxyReq.setHeader('Host', target.host);
+                proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (compatible; ImageProxy/1.0)');
+                proxyReq.setHeader('Accept', 'image/png,image/jpeg,image/*,*/*');
+                proxyReq.setHeader('Accept-Encoding', 'identity');
+                
+                // Remove the original query params from the proxy request
+                proxyReq.removeHeader('Referer');
+                proxyReq.removeHeader('Origin');
+              }
+            } catch (error) {
+              console.error('🖼️ Proxy configuration error:', error);
+            }
+          });
+          
+          proxy.on('proxyRes', (proxyRes, req, _res) => {
+            console.log('🖼️ Proxy response:', proxyRes.statusCode, proxyRes.headers['content-type']);
+          });
+          
+          proxy.on('error', (err, _req, _res) => {
+            console.error('🖼️ Proxy error:', err);
           });
         },
       },

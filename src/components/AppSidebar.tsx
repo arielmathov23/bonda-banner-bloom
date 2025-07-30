@@ -56,6 +56,11 @@ export function AppSidebar({ activeSection, setActiveSection }: AppSidebarProps)
           <Button
             onClick={() => {
               console.log('Crear un Banner clicked, current activeSection:', activeSection);
+              // Always navigate to create-banner, regardless of current state
+              if (typeof window !== 'undefined') {
+                // Force a page refresh effect by dispatching custom event
+                window.dispatchEvent(new CustomEvent('resetBannerEditor'));
+              }
               setActiveSection('create-banner');
             }}
             className={`w-full justify-start px-4 py-3 text-left ${

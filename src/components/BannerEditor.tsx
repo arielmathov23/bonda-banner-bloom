@@ -14,6 +14,8 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import { getBannerForEditor } from '@/lib/enhanced-banner-service';
 import { usePartners } from '@/hooks/usePartners';
+import { cleanupBackgroundRemovalUrls, isObjectUrlValid } from '@/lib/background-removal';
+import { supabase } from '@/integrations/supabase/client';
 import type { BannerComposition, BannerAsset, EditorState, ExportOptions } from '@/types/banner-editor';
 
 // Alignment guide interface
@@ -45,12 +47,13 @@ interface BrandGuidelines {
   fontSecondary: string;
 }
 
-// Fixed positioning layout for aligned elements
+// Fixed positioning layout for aligned elements - better centered positioning
 const FIXED_LAYOUT = {
-  logo: { x: 1200, y: 40 }, // Logo on right side, uses natural image dimensions
-  mainText: { x: 160, y: 80, width: 400, height: 50 }, // Title at top left
-  descriptionText: { x: 160, y: 130, width: 480, height: 40 }, // Description below title
-  ctaButton: { x: 150, y: 220, width: 160, height: 45 }, // CTA button below description, vertically stacked
+  logo: { x: 1050, y: 90 }, // Logo positioned more toward center-right for better balance
+  product: { x: 720, y: 60, width: 250, height: 250 }, // Product positioned in center-right area
+  mainText: { x: 250, y: 90, width: 400, height: 50 }, // Title more centered horizontally
+  descriptionText: { x: 250, y: 140, width: 480, height: 40 }, // Description aligned with title
+  ctaButton: { x: 250, y: 230, width: 160, height: 45 }, // CTA button aligned with text elements
 };
 
 const BannerEditor: React.FC<BannerEditorProps> = ({
@@ -71,6 +74,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   const textInputRef = useRef<HTMLTextAreaElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [backgroundImage, setBackgroundImage] = useState<HTMLImageElement | null>(null);
+  const [productImage, setProductImage] = useState<HTMLImageElement | null>(null);
   const [logoImage, setLogoImage] = useState<HTMLImageElement | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [miniToolbarPosition, setMiniToolbarPosition] = useState<{ x: number; y: number } | null>(null);
@@ -87,6 +91,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   const [isLoadingBanner, setIsLoadingBanner] = useState(false);
   const [bannerData, setBannerData] = useState<any>(null);
   const [actualBackgroundImageUrl, setActualBackgroundImageUrl] = useState(backgroundImageUrl);
+  const [actualProductImageUrl, setActualProductImageUrl] = useState<string | null>(null);
   const [actualPartnerLogoUrl, setActualPartnerLogoUrl] = useState(partnerLogoUrl);
   const [actualBannerText, setActualBannerText] = useState(bannerText);
   const [actualDescriptionText, setActualDescriptionText] = useState(descriptionText || '');
@@ -107,20 +112,93 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   // Alignment guides state
   const [alignmentGuides, setAlignmentGuides] = useState<AlignmentGuide[]>([]);
   
+  // Window focus state to handle image reloading
+  const [windowFocused, setWindowFocused] = useState(true);
+  
   // Helper function for consistent logo sizing: max height 150px, maintain aspect ratio
   const calculateLogoSize = (naturalWidth: number, naturalHeight: number) => {
-    const maxHeight = 150;
+    // Validate input dimensions
+    if (naturalWidth <= 0 || naturalHeight <= 0) {
+      console.warn('Invalid logo dimensions:', naturalWidth, 'x', naturalHeight);
+      return { width: 150, height: 150 }; // fallback square
+    }
+    
+    const maxHeight = 100; // Reduced from 150px to make logos smaller
     let logoWidth = naturalWidth;
     let logoHeight = naturalHeight;
+    
+    // Calculate original aspect ratio
+    const originalAspectRatio = naturalWidth / naturalHeight;
     
     if (logoHeight > maxHeight) {
       const scale = maxHeight / logoHeight;
       logoHeight = maxHeight;
-      logoWidth = logoWidth * scale;
+      logoWidth = naturalWidth * scale; // Use naturalWidth to preserve ratio
     }
     
-    console.log(`Logo sizing: ${naturalWidth}x${naturalHeight} → ${Math.round(logoWidth)}x${Math.round(logoHeight)}`);
+    // Verify aspect ratio is maintained
+    const newAspectRatio = logoWidth / logoHeight;
+    const aspectRatioDiff = Math.abs(originalAspectRatio - newAspectRatio);
+    
+    if (aspectRatioDiff > 0.01) { // Allow small floating point differences
+      console.warn(`Aspect ratio not preserved! Original: ${originalAspectRatio.toFixed(3)}, New: ${newAspectRatio.toFixed(3)}`);
+    }
+    
+    console.log(`Logo sizing: ${naturalWidth}x${naturalHeight} (ratio: ${originalAspectRatio.toFixed(3)}) → ${Math.round(logoWidth)}x${Math.round(logoHeight)} (ratio: ${newAspectRatio.toFixed(3)})`);
     return { width: logoWidth, height: logoHeight };
+  };
+
+  // Helper function to automatically break text after 14 characters for better readability
+  const autoBreakText = (text: string, maxCharsPerLine: number = 14): string[] => {
+    if (!text) return [];
+    
+    // First, respect existing line breaks
+    const manualLines = text.split('\n');
+    const resultLines: string[] = [];
+    
+    manualLines.forEach(line => {
+      if (line.length <= maxCharsPerLine) {
+        // Line is short enough, keep as is
+        resultLines.push(line);
+      } else {
+        // Line is too long, break it intelligently
+        const words = line.split(' ');
+        let currentLine = '';
+        
+        words.forEach(word => {
+          // Check if adding this word would exceed the limit
+          const testLine = currentLine ? `${currentLine} ${word}` : word;
+          
+          if (testLine.length <= maxCharsPerLine) {
+            currentLine = testLine;
+          } else {
+            // Adding this word exceeds limit
+            if (currentLine) {
+              // Save current line and start new one with this word
+              resultLines.push(currentLine);
+              currentLine = word;
+            } else {
+              // Even single word is too long, break it forcefully
+              if (word.length > maxCharsPerLine) {
+                for (let i = 0; i < word.length; i += maxCharsPerLine) {
+                  resultLines.push(word.slice(i, i + maxCharsPerLine));
+                }
+                currentLine = '';
+              } else {
+                currentLine = word;
+              }
+            }
+          }
+        });
+        
+        // Don't forget the last line
+        if (currentLine) {
+          resultLines.push(currentLine);
+        }
+      }
+    });
+    
+    return resultLines;
   };
 
   // Calculate alignment guides during drag
@@ -249,6 +327,9 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     zoom: 1,
     lastModified: new Date()
   });
+
+  // Track whether we've attempted to load saved composition
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   // Load partner brand guidelines
   const loadPartnerBrandGuidelines = useCallback(async () => {
@@ -399,13 +480,29 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         try {
           const banner = await getBannerForEditor(bannerId);
           setBannerData(banner);
-          setActualBackgroundImageUrl(banner.image_url);
+          setActualBackgroundImageUrl(banner.background_image_url || banner.image_url);
+          setActualProductImageUrl(banner.product_image_url);
           setActualPartnerLogoUrl(banner.partners?.logo_url);
           setActualBannerText(banner.main_text || '');
           setActualDescriptionText(banner.description_text || '');
           setActualCtaText(banner.cta_text || '');
           
-          console.log('Banner data loaded:', banner);
+          console.log('Banner data loaded (3-layer):', {
+            bannerId: banner.id,
+            hasBackground: !!banner.background_image_url,
+            hasProduct: !!banner.product_image_url,
+            backgroundUrl: banner.background_image_url,
+            productUrl: banner.product_image_url,
+            legacy: !!banner.image_url
+          });
+          
+          // Debug the product image URL specifically
+          if (banner.product_image_url) {
+            console.log('✅ Product image URL found:', banner.product_image_url);
+          } else {
+            console.log('❌ No product image URL in banner data');
+            console.log('Full banner data:', banner);
+          }
         } catch (error) {
           console.error('Failed to load banner data:', error);
           toast({
@@ -429,19 +526,98 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     }
   }, [partners, partnerId, loadPartnerBrandGuidelines]);
 
-  // Initialize assets with fixed positioning and brand colors
+  // Handle window focus/blur events to manage image lifecycle
   useEffect(() => {
+    const handleFocus = () => {
+      console.log('🔍 Window gained focus - checking image integrity...');
+      setWindowFocused(true);
+      
+      // Check if images are still valid and reload if necessary
+      setTimeout(() => {
+        if (backgroundImage && backgroundImage.src && backgroundImage.complete === false) {
+          console.log('🔄 Background image needs reloading after focus...');
+          // Trigger background image reload by updating the URL state
+          setActualBackgroundImageUrl(prev => prev ? prev + '?reload=' + Date.now() : prev);
+        }
+        
+        if (productImage && productImage.src && productImage.complete === false) {
+          console.log('🔄 Product image needs reloading after focus...');
+          // Trigger product image reload
+          setActualProductImageUrl(prev => prev ? prev + '?reload=' + Date.now() : prev);
+        }
+      }, 100);
+    };
+
+    const handleBlur = () => {
+      console.log('👁️ Window lost focus - images may be cleaned up by browser...');
+      setWindowFocused(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('blur', handleBlur);
+    
+    // Also listen for visibility change (more reliable than focus/blur)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleFocus();
+      } else {
+        handleBlur();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+         return () => {
+       window.removeEventListener('focus', handleFocus);
+       window.removeEventListener('blur', handleBlur);
+       document.removeEventListener('visibilitychange', handleVisibilityChange);
+     };
+   }, [backgroundImage, productImage]);
+
+   // Cleanup object URLs when component unmounts
+   useEffect(() => {
+     return () => {
+       console.log('🧹 BannerEditor unmounting - cleaning up object URLs...');
+       cleanupBackgroundRemovalUrls();
+     };
+   }, []);
+
+  // Initialize assets with fixed positioning and brand colors (only if no saved composition)
+  useEffect(() => {
+    // Only initialize if we've attempted to load and there are no assets yet
+    if (!hasAttemptedLoad || !brandGuidelines || composition.assets.length > 0) return;
+    
+    // If we have a bannerId but banner data isn't loaded yet, wait for it
+    if (bannerId && isLoadingBanner) {
+      console.log('🕒 Banner data still loading, waiting before creating assets...');
+      return;
+    }
+    
+    console.log('🎨 Creating initial composition with default layout');
     const initialAssets: BannerAsset[] = [];
     
-    // Add logo with fixed position
+    // Add logo with fixed position - use 4:3 aspect ratio by default instead of 1:1
     if (actualPartnerLogoUrl) {
       initialAssets.push({
         id: `logo_${Date.now()}`,
         type: 'logo',
         position: { x: FIXED_LAYOUT.logo.x, y: FIXED_LAYOUT.logo.y },
-        size: { width: 100, height: 100 }, // Default size, will be updated to proper dimensions (max height 150px)
+        size: { width: 100, height: 75 }, // Use 4:3 aspect ratio, smaller size
         rotation: 0,
         imageUrl: actualPartnerLogoUrl
+      });
+    }
+
+    // Add product image asset if available
+    if (actualProductImageUrl) {
+      console.log('🖼️ Adding product image asset:', actualProductImageUrl);
+      initialAssets.push({
+        id: `product_${Date.now()}`,
+        type: 'product',
+        position: { x: FIXED_LAYOUT.product.x, y: FIXED_LAYOUT.product.y },
+        size: { width: FIXED_LAYOUT.product.width, height: FIXED_LAYOUT.product.height },
+        rotation: 0,
+        imageUrl: actualProductImageUrl
       });
     }
     
@@ -456,7 +632,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         text: actualBannerText,
         fontSize: 42, // Larger title font
         fontFamily: 'Cerebi Sans',
-        color: '#000000',
+        color: brandGuidelines.mainColor,
         fontWeight: 'bold',
         textAlign: 'left'
       });
@@ -473,7 +649,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         text: actualDescriptionText,
         fontSize: 36, // Smaller than title, good proportion
         fontFamily: 'Cerebi Sans',
-        color: '#000000',
+        color: brandGuidelines.mainColor,
         fontWeight: 'normal',
         textAlign: 'left'
       });
@@ -498,78 +674,344 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       });
     }
 
+    // Set initial composition with generated assets
+    console.log('🎯 Setting initial composition with assets:', initialAssets.map(asset => ({
+      id: asset.id,
+      type: asset.type,
+      position: asset.position,
+      size: asset.size,
+      imageUrl: asset.imageUrl ? 'YES' : 'NO'
+    })));
+    
     setComposition(prev => ({
       ...prev,
       assets: initialAssets,
       lastModified: new Date()
     }));
+  }, [hasAttemptedLoad, bannerId, isLoadingBanner, actualPartnerLogoUrl, actualProductImageUrl, actualBannerText, actualDescriptionText, actualCtaText, brandGuidelines, composition.assets.length]);
 
-    // Load saved composition if available (user explicitly saved changes)
-    const key = `banner_composition_${bannerId}`;
-    const saved = localStorage.getItem(key);
-    
-    if (saved) {
-      try {
-        const savedComposition = JSON.parse(saved);
-        
-        // Always load saved composition - user explicitly saved their changes
-        // This includes position changes, size changes, text edits, etc.
-        console.log('Loading saved composition for banner:', bannerId);
-        setComposition(savedComposition);
-        setEditorState(prev => ({ ...prev, zoom: savedComposition.zoom || 1 }));
-        
-      } catch (error) {
-        console.error('Failed to load saved composition:', error);
-        // If loading fails, keep the initial composition
+  // Helper function to check if saved composition exists
+  const checkForSavedComposition = useCallback(async (): Promise<boolean> => {
+    try {
+      // Check database first
+      const { data: banner, error } = await supabase
+        .from('banners')
+        .select('composition_data')
+        .eq('id', bannerId)
+        .single();
+
+      if (!error && banner?.composition_data) {
+        return true;
       }
-    }
-  }, [bannerId, actualPartnerLogoUrl, actualBannerText, actualDescriptionText, actualCtaText, brandGuidelines]);
 
-  // Save/Load composition
-  const saveComposition = useCallback(() => {
-    const key = `banner_composition_${bannerId}`;
-    const compositionData = { ...composition, lastModified: new Date() };
-    localStorage.setItem(key, JSON.stringify(compositionData));
-    
-    setHasUnsavedChanges(false);
-    
-    toast({
-      title: "Composición guardada",
-      description: "Los cambios se han guardado correctamente",
-    });
-
-    // Call onSave callback if provided and exit after save
-    if (onSave) {
-      onSave(compositionData);
-    }
-    
-    // Auto-exit after successful save
-    if (onExit) {
-      setTimeout(() => {
-        onExit();
-      }, 500); // Small delay to show the toast
-    }
-  }, [composition, bannerId, onSave, onExit]);
-
-  const loadComposition = useCallback(() => {
-    const key = `banner_composition_${bannerId}`;
-    const saved = localStorage.getItem(key);
-    
-    if (saved) {
-      try {
-        const savedComposition = JSON.parse(saved);
-        setComposition(savedComposition);
-        setEditorState(prev => ({ ...prev, zoom: savedComposition.zoom || 1 }));
-      } catch (error) {
-        console.error('Failed to load composition:', error);
-      }
+      // Check localStorage
+      const key = `banner_composition_${bannerId}`;
+      const saved = localStorage.getItem(key);
+      return !!saved;
+    } catch (error) {
+      return false;
     }
   }, [bannerId]);
 
+  // Load composition from database first, then fallback to localStorage
+  const loadComposition = useCallback(async (): Promise<boolean> => {
+    // Try to load from database first, then fallback to localStorage
+    try {
+      console.log('📥 Loading composition from database...');
+      const { data: banner, error } = await supabase
+        .from('banners')
+        .select('composition_data')
+        .eq('id', bannerId)
+        .single();
+
+      if (error) {
+        console.warn('Database load failed, trying localStorage:', error);
+      } else if (banner?.composition_data) {
+        const savedComposition = banner.composition_data as any;
+        
+        console.log('📥 Raw composition data from database:', banner.composition_data);
+        console.log('📊 Loaded composition details:', {
+          assets: savedComposition.assets?.length || 0,
+          assetDetails: savedComposition.assets?.map(asset => ({
+            id: asset.id,
+            type: asset.type,
+            position: asset.position,
+            size: asset.size,
+            imageUrl: asset.imageUrl ? 'YES' : 'NO'
+          })) || [],
+          zoom: savedComposition.zoom,
+          canvasSize: savedComposition.canvasSize
+        });
+        
+        // Convert lastModified back to Date object
+        if (savedComposition.lastModified) {
+          savedComposition.lastModified = new Date(savedComposition.lastModified);
+        }
+        
+        console.log('✅ Loaded composition from database');
+        setComposition(savedComposition);
+        setEditorState(prev => ({ ...prev, zoom: savedComposition.zoom || 1 }));
+        
+        // Force a re-render after composition is loaded
+        setTimeout(() => {
+          console.log('🎨 Triggering canvas re-render after composition load');
+          renderCanvas();
+        }, 100);
+        
+        return true;
+      }
+    } catch (dbError) {
+      console.warn('Database composition load error:', dbError);
+    }
+
+    // Fallback to localStorage
+    const key = `banner_composition_${bannerId}`;
+    const saved = localStorage.getItem(key);
+    
+    if (saved) {
+      try {
+        const savedComposition = JSON.parse(saved);
+        console.log('📦 Loaded composition from localStorage');
+        setComposition(savedComposition);
+        setEditorState(prev => ({ ...prev, zoom: savedComposition.zoom || 1 }));
+        return true;
+      } catch (error) {
+        console.error('Failed to load composition from localStorage:', error);
+      }
+    }
+    
+    return false; // No saved composition found
+  }, [bannerId]);
+
+  // Load saved composition from database/localStorage (separate effect to avoid ordering issues)
+  useEffect(() => {
+    // Always attempt to load composition first, regardless of brand guidelines
+    // This ensures existing banners show their saved elements immediately
+    if (brandGuidelines && !hasAttemptedLoad) {
+      const loadSavedComposition = async () => {
+        console.log('🔄 Checking for saved composition...');
+        const hasLoadedComposition = await loadComposition();
+        
+        // Mark that we've attempted to load composition
+        setHasAttemptedLoad(true);
+        
+        if (hasLoadedComposition) {
+          console.log('✅ Loaded existing composition with saved assets');
+        } else {
+          console.log('📝 No saved composition found, will create default assets');
+        }
+      };
+      
+      loadSavedComposition();
+    }
+  }, [bannerId, brandGuidelines, loadComposition, hasAttemptedLoad]);
+
+  // Update existing composition assets with brand colors ONLY if they have default colors
+  useEffect(() => {
+    if (hasAttemptedLoad && composition.assets.length > 0 && partnerId) {
+      const isDefaultGuidelines = brandGuidelines.mainColor === '#8A47F5' && brandGuidelines.secondaryColor === '#E9DEFF';
+      
+      // Only update colors if brand guidelines are loaded and assets have default colors
+      if (!isDefaultGuidelines) {
+        console.log('🎨 Checking if assets need brand color updates:', brandGuidelines);
+        
+        const updatedAssets = composition.assets.map(asset => {
+          // Only update if asset has default purple colors (indicating it needs brand colors)
+          if (asset.type === 'text' && (asset.color === '#000000' || asset.color === '#8A47F5')) {
+            console.log(`Updating text asset ${asset.id} color from ${asset.color} to ${brandGuidelines.mainColor}`);
+            return { ...asset, color: brandGuidelines.mainColor };
+          } else if (asset.type === 'cta' && (
+            asset.color === '#8A47F5' || asset.backgroundColor === '#E9DEFF' || 
+            asset.color === '#000000' || !asset.backgroundColor
+          )) {
+            console.log(`Updating CTA asset ${asset.id} colors`);
+            return { 
+              ...asset, 
+              color: brandGuidelines.mainColor,
+              backgroundColor: brandGuidelines.secondaryColor
+            };
+          }
+          return asset;
+        });
+        
+        // Only update if there are actual changes
+        const hasChanges = updatedAssets.some((asset, index) => {
+          const originalAsset = composition.assets[index];
+          return (asset.color !== originalAsset.color) || 
+                 (asset.backgroundColor !== originalAsset.backgroundColor);
+        });
+        
+        if (hasChanges) {
+          setComposition(prev => ({
+            ...prev,
+            assets: updatedAssets,
+            lastModified: new Date()
+          }));
+          console.log('✅ Updated assets with default colors to use partner brand colors');
+        } else {
+          console.log('✅ No color updates needed - assets already have proper colors');
+        }
+      }
+    }
+  }, [brandGuidelines, partnerId, hasAttemptedLoad, composition.assets.length]);
+
+
+
+  // Save composition to both localStorage and database
+  const saveComposition = useCallback(async () => {
+    try {
+      const compositionData = { ...composition, lastModified: new Date() };
+      
+      // Save to localStorage for quick recovery
+      const key = `banner_composition_${bannerId}`;
+      localStorage.setItem(key, JSON.stringify(compositionData));
+      
+      // Save to database for persistence
+      console.log('💾 Saving composition to database...');
+      console.log('📊 Composition data being saved:', {
+        assets: compositionData.assets.length,
+        assetDetails: compositionData.assets.map(asset => ({
+          id: asset.id,
+          type: asset.type,
+          position: asset.position,
+          size: asset.size,
+          imageUrl: asset.imageUrl ? 'YES' : 'NO'
+        })),
+        zoom: compositionData.zoom,
+        canvasSize: compositionData.canvasSize
+      });
+      
+      // Prepare composition data for database (ensure JSON compatibility)
+      const dbCompositionData = JSON.parse(JSON.stringify({
+        ...compositionData,
+        lastModified: compositionData.lastModified.toISOString()
+      }));
+      
+      console.log('📦 DB composition data:', dbCompositionData);
+      
+      const { error } = await supabase
+        .from('banners')
+        .update({
+          composition_data: dbCompositionData,
+          // Also update text fields if they've changed
+          main_text: actualBannerText,
+          description_text: actualDescriptionText,
+          cta_text: actualCtaText
+        })
+        .eq('id', bannerId);
+
+      if (error) {
+        console.error('Database save error:', error);
+        toast({
+          title: "Error al guardar",
+          description: `Error de base de datos: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Verify the save by reading back the data
+      console.log('🔍 Verifying save by reading back from database...');
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('banners')
+        .select('composition_data')
+        .eq('id', bannerId)
+        .single();
+        
+      if (verifyError) {
+        console.warn('⚠️ Could not verify save:', verifyError);
+      } else {
+        console.log('✅ Verified saved data:', verifyData?.composition_data);
+      }
+      
+      setHasUnsavedChanges(false);
+      
+      toast({
+        title: "✅ Banner guardado",
+        description: "La composición se ha guardado correctamente en la base de datos",
+      });
+
+      // Call onSave callback if provided (but don't exit automatically)
+      if (onSave) {
+        onSave(compositionData);
+      }
+      
+      console.log('✅ Composition saved successfully to database');
+      
+    } catch (error) {
+      console.error('Save composition error:', error);
+      toast({
+        title: "Error al guardar",
+        description: "No se pudo guardar la composición",
+        variant: "destructive",
+      });
+    }
+  }, [composition, bannerId, actualBannerText, actualDescriptionText, actualCtaText, onSave]);
+
+  // Auto-save composition every 10 seconds when there are unsaved changes
+  useEffect(() => {
+    let autoSaveInterval: NodeJS.Timeout;
+    
+    if (hasUnsavedChanges && composition.assets.length > 0) {
+      console.log('⏰ Starting auto-save timer...');
+      autoSaveInterval = setInterval(async () => {
+        if (hasUnsavedChanges) {
+          console.log('💾 Auto-saving composition...');
+          try {
+            await saveComposition();
+            console.log('✅ Auto-save successful');
+          } catch (error) {
+            console.warn('⚠️ Auto-save failed:', error);
+          }
+        }
+      }, 10000); // Auto-save every 10 seconds
+    }
+    
+    return () => {
+      if (autoSaveInterval) {
+        clearInterval(autoSaveInterval);
+      }
+    };
+  }, [hasUnsavedChanges, composition.assets.length, saveComposition]);
+
   const updateComposition = useCallback((updater: (prev: BannerComposition) => BannerComposition) => {
-    setComposition(updater);
+    setComposition(prev => {
+      const updated = updater(prev);
+      console.log('🔄 Composition updated:', {
+        assetsCount: updated.assets.length,
+        hasUnsavedChanges: true,
+        productAsset: updated.assets.find(a => a.type === 'product') ? {
+          position: updated.assets.find(a => a.type === 'product')?.position,
+          size: updated.assets.find(a => a.type === 'product')?.size
+        } : 'NOT_FOUND'
+      });
+      return updated;
+    });
     setHasUnsavedChanges(true);
   }, []);
+
+  // Handle exit with automatic save
+  const handleExit = useCallback(async () => {
+    if (hasUnsavedChanges) {
+      console.log('💾 Auto-saving composition before exit...');
+      try {
+        await saveComposition();
+        console.log('✅ Composition saved successfully before exit');
+        if (onExit) onExit();
+      } catch (error) {
+        console.error('❌ Failed to save before exit:', error);
+        // Still allow exit even if save fails, but warn user
+        toast({
+          title: "Advertencia",
+          description: "No se pudieron guardar todos los cambios. ¿Continuar saliendo?",
+          variant: "destructive",
+        });
+        if (onExit) onExit();
+      }
+    } else {
+      if (onExit) onExit();
+    }
+  }, [hasUnsavedChanges, saveComposition, onExit]);
 
   // Text editing functions
   const startTextEditing = (assetId: string) => {
@@ -594,6 +1036,21 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    console.log('🎨 renderCanvas called with:', {
+      assetsCount: composition.assets.length,
+      assets: composition.assets.map(a => ({
+        id: a.id,
+        type: a.type,
+        text: a.text,
+        position: a.position,
+        size: a.size,
+        color: a.color
+      })),
+      backgroundImage: !!backgroundImage,
+      productImage: !!productImage,
+      logoImage: !!logoImage
+    });
+
     // Wait for background image to load
     if (!backgroundImage) {
       console.log('Background image not loaded yet, skipping render');
@@ -611,9 +1068,9 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw background image
+    // Draw background image (layer 1)
     try {
-    ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height);
       console.log('Background image drawn successfully');
     } catch (error) {
       console.error('Error drawing background image:', error);
@@ -621,6 +1078,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       ctx.fillStyle = '#f5f5f5';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
+
+    // Product image is now drawn as an asset in the asset loop below
 
     // Draw all assets
     composition.assets.forEach(asset => {
@@ -637,7 +1096,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         ctx.textAlign = asset.textAlign as CanvasTextAlign || 'left';
         ctx.textBaseline = 'middle';
         
-        const lines = asset.text.split('\n');
+        // Use auto-break function for better text formatting with 14-character limit
+        const lines = autoBreakText(asset.text, 14);
         const lineHeight = asset.fontSize! * 1.2;
         
         lines.forEach((line, index) => {
@@ -653,8 +1113,17 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           ctx.fillText(line, x, y);
         });
       } else if (asset.type === 'cta' && asset.text) {
-        // Draw CTA button with background and rounded corners
+        // Draw CTA button with subtle background effects
         const borderRadius = asset.borderRadius || 12;
+        
+        // Save context for effects
+        ctx.save();
+        
+        // Add subtle drop shadow to CTA
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 3;
+        ctx.shadowBlur = 8;
         
         // Helper function to draw rounded rectangle
         const drawRoundedRect = (x: number, y: number, width: number, height: number, radius: number) => {
@@ -671,12 +1140,18 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           ctx.closePath();
         };
 
-        // Draw button background
+        // Draw button background with shadow
         if (asset.backgroundColor) {
           ctx.fillStyle = asset.backgroundColor;
           drawRoundedRect(0, 0, asset.size.width, asset.size.height, borderRadius);
           ctx.fill();
         }
+        
+        // Reset shadow for text
+        ctx.shadowColor = 'transparent';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.shadowBlur = 0;
 
         // Draw button border if specified
         if (asset.borderColor) {
@@ -692,7 +1167,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         ctx.textAlign = asset.textAlign as CanvasTextAlign || 'center';
         ctx.textBaseline = 'middle';
         
-        const lines = asset.text.split('\n');
+        // Use auto-break function for CTA text as well (though it's already limited to 14 chars)
+        const lines = autoBreakText(asset.text, 14);
         const lineHeight = asset.fontSize! * 1.2;
         
         lines.forEach((line, index) => {
@@ -707,32 +1183,165 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           
           ctx.fillText(line, x, y);
         });
+        
+        // Restore context
+        ctx.restore();
       } else if (asset.type === 'logo' && logoImage) {
-        // Draw logo image if available
+        // Draw logo image with subtle background effect
         try {
-        ctx.drawImage(logoImage, 0, 0, asset.size.width, asset.size.height);
+          const borderRadius = 12; // Rounded corner radius
+          const x = 0;
+          const y = 0;
+          const width = asset.size.width;
+          const height = asset.size.height;
+          
+          // Save context for effects
+          ctx.save();
+          
+          // Add stronger drop shadow for better visibility
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.18)';
+          ctx.shadowOffsetX = 4;
+          ctx.shadowOffsetY = 4;
+          ctx.shadowBlur = 12;
+          
+          // Create more visible background with slight gradient effect
+          const gradient = ctx.createLinearGradient(x, y, x + width, y + height);
+          gradient.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+          gradient.addColorStop(1, 'rgba(248, 250, 252, 0.92)');
+          ctx.fillStyle = gradient;
+          ctx.beginPath();
+          ctx.moveTo(x + borderRadius, y);
+          ctx.lineTo(x + width - borderRadius, y);
+          ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+          ctx.lineTo(x + width, y + height - borderRadius);
+          ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+          ctx.lineTo(x + borderRadius, y + height);
+          ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+          ctx.lineTo(x, y + borderRadius);
+          ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Reset shadow for logo image
+          ctx.shadowColor = 'transparent';
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.shadowBlur = 0;
+          
+          // Create clipping path for logo
+          ctx.beginPath();
+          ctx.moveTo(x + borderRadius, y);
+          ctx.lineTo(x + width - borderRadius, y);
+          ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+          ctx.lineTo(x + width, y + height - borderRadius);
+          ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+          ctx.lineTo(x + borderRadius, y + height);
+          ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+          ctx.lineTo(x, y + borderRadius);
+          ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+          ctx.closePath();
+          ctx.clip();
+          
+          // Draw the logo image within the clipped area
+          ctx.drawImage(logoImage, x, y, width, height);
+          
+          // Restore context
+          ctx.restore();
         } catch (error) {
           console.error('Error drawing logo image:', error);
-          // Fallback to placeholder
+          // Fallback to placeholder with rounded corners
+          const borderRadius = 12;
+          const x = 0;
+          const y = 0;
+          const width = asset.size.width;
+          const height = asset.size.height;
+          
+          // Draw rounded placeholder
+          ctx.beginPath();
+          ctx.moveTo(x + borderRadius, y);
+          ctx.lineTo(x + width - borderRadius, y);
+          ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+          ctx.lineTo(x + width, y + height - borderRadius);
+          ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+          ctx.lineTo(x + borderRadius, y + height);
+          ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+          ctx.lineTo(x, y + borderRadius);
+          ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+          ctx.closePath();
           ctx.fillStyle = 'rgba(0,0,0,0.1)';
-          ctx.fillRect(0, 0, asset.size.width, asset.size.height);
+          ctx.fill();
           ctx.strokeStyle = '#ccc';
-          ctx.strokeRect(0, 0, asset.size.width, asset.size.height);
+          ctx.stroke();
+          
           ctx.fillStyle = '#666';
           ctx.font = '14px Inter';
           ctx.textAlign = 'center';
-          ctx.fillText('LOGO', asset.size.width / 2, asset.size.height / 2);
+          ctx.fillText('LOGO', width / 2, height / 2);
         }
       } else if (asset.type === 'logo') {
-        // Draw logo placeholder
+        // Draw logo placeholder with rounded corners
+        const borderRadius = 12;
+        const x = 0;
+        const y = 0;
+        const width = asset.size.width;
+        const height = asset.size.height;
+        
+        // Draw rounded placeholder
+        ctx.beginPath();
+        ctx.moveTo(x + borderRadius, y);
+        ctx.lineTo(x + width - borderRadius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + borderRadius);
+        ctx.lineTo(x + width, y + height - borderRadius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - borderRadius, y + height);
+        ctx.lineTo(x + borderRadius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - borderRadius);
+        ctx.lineTo(x, y + borderRadius);
+        ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+        ctx.closePath();
         ctx.fillStyle = 'rgba(0,0,0,0.1)';
-        ctx.fillRect(0, 0, asset.size.width, asset.size.height);
+        ctx.fill();
         ctx.strokeStyle = '#ccc';
-        ctx.strokeRect(0, 0, asset.size.width, asset.size.height);
+        ctx.stroke();
+        
         ctx.fillStyle = '#666';
         ctx.font = '14px Inter';
         ctx.textAlign = 'center';
-        ctx.fillText('LOGO', asset.size.width / 2, asset.size.height / 2);
+        ctx.fillText('LOGO', width / 2, height / 2);
+      } else if (asset.type === 'product' && productImage) {
+        // Draw product image
+        try {
+          ctx.drawImage(productImage, 0, 0, asset.size.width, asset.size.height);
+          console.log('✅ Product image drawn as asset:', { width: asset.size.width, height: asset.size.height });
+        } catch (error) {
+          console.error('❌ Error drawing product image asset:', error);
+          // Fallback to placeholder
+          ctx.fillStyle = 'rgba(0,150,0,0.1)';
+          ctx.fillRect(0, 0, asset.size.width, asset.size.height);
+          ctx.strokeStyle = '#4CAF50';
+          ctx.strokeRect(0, 0, asset.size.width, asset.size.height);
+          ctx.fillStyle = '#2E7D2E';
+          ctx.font = '14px Inter';
+          ctx.textAlign = 'center';
+          ctx.fillText('PRODUCTO', asset.size.width / 2, asset.size.height / 2);
+        }
+      } else if (asset.type === 'product') {
+        // Draw product placeholder
+        console.log('⚠️ Product asset found but no productImage state - showing placeholder');
+        console.log('Product asset details:', {
+          id: asset.id,
+          imageUrl: asset.imageUrl,
+          hasProductImageState: !!productImage,
+          actualProductImageUrl: actualProductImageUrl
+        });
+        
+        ctx.fillStyle = 'rgba(0,150,0,0.1)';
+        ctx.fillRect(0, 0, asset.size.width, asset.size.height);
+        ctx.strokeStyle = '#4CAF50';
+        ctx.strokeRect(0, 0, asset.size.width, asset.size.height);
+        ctx.fillStyle = '#2E7D2E';
+        ctx.font = '14px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('PRODUCTO', asset.size.width / 2, asset.size.height / 2);
       }
 
       ctx.restore();
@@ -772,13 +1381,23 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       
       ctx.restore();
     }
-  }, [composition, backgroundImage, logoImage, editorState.selectedAssetId, editingText, alignmentGuides]);
+  }, [composition, backgroundImage, logoImage, productImage, editorState.selectedAssetId, editingText, alignmentGuides]);
 
-  // Force re-render when background image changes
+  // Force re-render when background or product images change
   useEffect(() => {
-    console.log('Background image changed, triggering render');
+    console.log('Images changed, triggering render');
     renderCanvas();
-  }, [renderCanvas, backgroundImage]);
+  }, [renderCanvas, backgroundImage, productImage]);
+
+  // Force re-render when composition assets change (especially important for loaded compositions)
+  useEffect(() => {
+    console.log('🎨 Composition assets changed, triggering render:', {
+      assetsCount: composition.assets.length,
+      assetTypes: composition.assets.map(a => `${a.type}(${a.text || 'no-text'})`),
+      hasLoaded: hasAttemptedLoad
+    });
+    renderCanvas();
+  }, [renderCanvas, composition.assets, hasAttemptedLoad]);
 
   // Load images with smart CORS handling
   useEffect(() => {
@@ -843,6 +1462,39 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
             console.error('URL:', actualBackgroundImageUrl);
             console.error('This might indicate a bucket permissions issue or CORS configuration problem.');
             
+            // Test direct URL access
+            fetch(actualBackgroundImageUrl, { method: 'HEAD' })
+              .then(response => {
+                console.log('🔍 Background Direct fetch test result:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  ok: response.ok,
+                  contentType: response.headers.get('content-type'),
+                  headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                if (response.ok) {
+                  console.log('✅ Background URL is accessible! Issue is with image loading method.');
+                  // Try alternative loading method
+                  console.log('🔄 Trying alternative background image loading...');
+                  const img = document.createElement('img');
+                  img.crossOrigin = 'anonymous';
+                  img.onload = () => {
+                    console.log('✅ Alternative background loading successful!');
+                    setBackgroundImage(img);
+                  };
+                  img.onerror = (altError) => {
+                    console.error('❌ Alternative background loading also failed:', altError);
+                  };
+                  img.src = actualBackgroundImageUrl + '?t=' + Date.now(); // Cache bust
+                } else {
+                  console.error('❌ Background URL not accessible:', response.status, response.statusText);
+                }
+              })
+              .catch(fetchError => {
+                console.error('🔍 Background Direct fetch test failed:', fetchError);
+              });
+            
             // Show user-friendly error
             toast({
               title: "Error al cargar imagen",
@@ -898,6 +1550,198 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       }));
     }
   }, [actualBackgroundImageUrl]);
+
+  // Load product image with smart CORS handling and create asset
+  useEffect(() => {
+    console.log('🔳 Product image useEffect triggered, actualProductImageUrl:', actualProductImageUrl);
+    
+    if (actualProductImageUrl) {
+      console.log('🔳 Loading product image:', actualProductImageUrl);
+      
+      const isSupabaseStorage = actualProductImageUrl.includes('supabase.co/storage');
+      const isExternalService = actualProductImageUrl.includes('delivery-eu1.bfl.ai') || 
+                               actualProductImageUrl.includes('delivery-us1.bfl.ai') || 
+                               actualProductImageUrl.includes('bfl.ai') || 
+                               actualProductImageUrl.includes('openai.com');
+      
+      const handleImageLoad = (img: HTMLImageElement) => {
+        console.log('✅ Product image loaded successfully, creating asset');
+        setProductImage(img);
+        
+        // Calculate product image size and position - center it but make it an asset
+        const canvasWidth = composition.canvasSize.width;
+        const canvasHeight = composition.canvasSize.height;
+        
+        // Calculate optimal size (35% of banner width, maintaining aspect ratio)
+        const productMaxWidth = canvasWidth * 0.35;
+        const productMaxHeight = canvasHeight * 0.8;
+        
+        const productAspectRatio = img.width / img.height;
+        let productWidth = productMaxWidth;
+        let productHeight = productMaxWidth / productAspectRatio;
+        
+        if (productHeight > productMaxHeight) {
+          productHeight = productMaxHeight;
+          productWidth = productMaxHeight * productAspectRatio;
+        }
+        
+        // Position in center
+        const productX = (canvasWidth - productWidth) / 2;
+        const productY = (canvasHeight - productHeight) / 2;
+        
+        // Create product asset
+        const productAsset: BannerAsset = {
+          id: `product_${Date.now()}`,
+          type: 'product',
+          position: { x: productX, y: productY },
+          size: { width: productWidth, height: productHeight },
+          rotation: 0,
+          imageUrl: actualProductImageUrl
+        };
+        
+        console.log('🔳 Creating product asset:', {
+          id: productAsset.id,
+          position: productAsset.position,
+          size: productAsset.size,
+          imageUrl: productAsset.imageUrl?.substring(0, 50) + '...',
+          canvasSize: composition.canvasSize
+        });
+        
+        // Add product asset to composition (or update if exists)
+        setComposition(prev => {
+          const existingProductIndex = prev.assets.findIndex(asset => asset.type === 'product');
+          let newAssets;
+          
+          if (existingProductIndex >= 0) {
+            // Update existing product asset
+            newAssets = prev.assets.map((asset, index) => 
+              index === existingProductIndex ? productAsset : asset
+            );
+          } else {
+            // Add new product asset
+            newAssets = [...prev.assets, productAsset];
+          }
+          
+          return {
+            ...prev,
+            assets: newAssets,
+            lastModified: new Date()
+          };
+        });
+        
+        console.log('Product asset created:', { productWidth, productHeight, productX, productY });
+      };
+      
+      if (isSupabaseStorage) {
+        // For Supabase storage URLs, try different loading methods
+        console.log('Loading Supabase storage product image...');
+        
+        // First try: Load without CORS (might work for public buckets)
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+          console.log('✅ Supabase storage product image loaded successfully (no CORS)');
+          handleImageLoad(img);
+        };
+        
+        img.onerror = (error) => {
+          console.warn('Failed to load product image without CORS, trying with CORS...', error);
+          
+          // Second try: Load with CORS
+          const corsImg = document.createElement('img');
+          corsImg.crossOrigin = 'anonymous';
+          
+          corsImg.onload = () => {
+            console.log('✅ Supabase storage product image loaded successfully (with CORS)');
+            handleImageLoad(corsImg);
+          };
+          
+          corsImg.onerror = (corsError) => {
+            console.error('❌ Failed to load Supabase storage product image with both methods:', corsError);
+            console.error('URL:', actualProductImageUrl);
+            
+            // Test direct URL access
+            fetch(actualProductImageUrl, { method: 'HEAD' })
+              .then(response => {
+                console.log('🔍 Product direct fetch test result:', {
+                  status: response.status,
+                  statusText: response.statusText,
+                  ok: response.ok,
+                  contentType: response.headers.get('content-type'),
+                  headers: Object.fromEntries(response.headers.entries())
+                });
+                
+                if (response.ok) {
+                  console.log('✅ Product URL is accessible! Issue is with image loading method.');
+                  // Try alternative loading method
+                  console.log('🔄 Trying alternative product image loading...');
+                  const img = document.createElement('img');
+                  img.crossOrigin = 'anonymous';
+                  img.onload = () => {
+                    console.log('✅ Alternative product loading successful!');
+                    handleImageLoad(img);
+                  };
+                  img.onerror = (altError) => {
+                    console.error('❌ Alternative product loading also failed:', altError);
+                  };
+                  img.src = actualProductImageUrl + '?t=' + Date.now(); // Cache bust
+                } else {
+                  console.error('❌ Product URL not accessible:', response.status, response.statusText);
+                }
+              })
+              .catch(fetchError => {
+                console.error('🔍 Product direct fetch test failed:', fetchError);
+              });
+              
+            // Show user-friendly error
+            toast({
+              title: "Error al cargar imagen del producto",
+              description: "No se pudo cargar la imagen del producto. Verifica la configuración de Supabase Storage.",
+              variant: "destructive"
+            });
+          };
+          
+          corsImg.src = actualProductImageUrl;
+        };
+        
+        img.src = actualProductImageUrl;
+      } else if (isExternalService) {
+        // For external services, use the proxy method
+        console.log('Loading external service product image via proxy...');
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+          console.log('✅ External service product image loaded via proxy');
+          handleImageLoad(img);
+        };
+        
+        img.onerror = (error) => {
+          console.error('❌ Failed to load external service product image via proxy:', error);
+          console.error('URL:', actualProductImageUrl);
+        };
+        
+        // Use proxy for external services
+        const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(actualProductImageUrl)}`;
+        img.src = proxyUrl;
+      } else {
+        // For other URLs (local development, etc.), use simple loading
+        console.log('Loading local/other product image directly...');
+        const img = document.createElement('img');
+        
+        img.onload = () => {
+          console.log('✅ Local/other product image loaded successfully');
+          handleImageLoad(img);
+        };
+        
+        img.onerror = (error) => {
+          console.error('❌ Failed to load local/other product image:', error);
+          console.error('URL:', actualProductImageUrl);
+        };
+        
+        img.src = actualProductImageUrl;
+      }
+    }
+  }, [actualProductImageUrl, composition.canvasSize]);
 
   useEffect(() => {
     if (actualPartnerLogoUrl) {
@@ -960,18 +1804,19 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     }
   }, [actualPartnerLogoUrl]);
 
-  // Update logo asset size to proper dimensions when logo loads (max height 150px)
+  // Update logo asset size to proper dimensions when logo loads (maintain aspect ratio, no 1:1 forcing)
   useEffect(() => {
     if (logoImage) {
       const logoAsset = composition.assets.find(asset => asset.type === 'logo');
       if (logoAsset) {
-        console.log('Updating logo to proper size from natural dimensions:', logoImage.naturalWidth, 'x', logoImage.naturalHeight);
+        console.log('Updating logo to proper proportional size from natural dimensions:', logoImage.naturalWidth, 'x', logoImage.naturalHeight);
         
-        // Use proper sizing instead of natural dimensions
+        // Use proper proportional sizing - never force to 1:1 aspect ratio
         const { width: logoWidth, height: logoHeight } = calculateLogoSize(logoImage.naturalWidth, logoImage.naturalHeight);
         
         // Only update if the size has actually changed to prevent infinite loops
-        if (logoAsset.size.width !== logoWidth || logoAsset.size.height !== logoHeight) {
+        const sizeChanged = Math.abs(logoAsset.size.width - logoWidth) > 1 || Math.abs(logoAsset.size.height - logoHeight) > 1;
+        if (sizeChanged) {
           setComposition(prev => ({
             ...prev,
             assets: prev.assets.map(asset => 
@@ -981,6 +1826,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
             ),
             lastModified: new Date()
           }));
+          console.log(`✅ Logo resized to maintain proportions: ${logoWidth.toFixed(1)}x${logoHeight.toFixed(1)}`);
         }
       }
     }
@@ -1017,7 +1863,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       startHeight: selectedAsset.size.height,
       startPosX: selectedAsset.position.x,
       startPosY: selectedAsset.position.y,
-      isLogo: selectedAsset.type === 'logo'
+      isLogo: selectedAsset.type === 'logo',
+      isProduct: selectedAsset.type === 'product'
     });
     
     // Update editor state to indicate resizing
@@ -1117,6 +1964,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         // Get selected asset info
         const selectedAsset = composition.assets.find(a => a.id === editorState.selectedAssetId);
         const isLogo = selectedAsset?.type === 'logo';
+        const isProduct = selectedAsset?.type === 'product';
         
         // Calculate new dimensions based on handle
         switch (resizeHandle) {
@@ -1142,20 +1990,43 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
             break;
         }
 
-        // For logos, maintain aspect ratio
-        if (isLogo) {
-          const aspectRatio = initialResizeData.startWidth / initialResizeData.startHeight;
-          const scale = newWidth / initialResizeData.startWidth;
+        // For logos and product images, maintain aspect ratio
+        if (isLogo || isProduct) {
+          const originalAspectRatio = initialResizeData.startWidth / initialResizeData.startHeight;
           
-          // Recalculate height to maintain aspect ratio
-          newHeight = Math.max(20, initialResizeData.startHeight * scale);
+          // Use the scale factor based on the dimension that changed more
+          const widthScale = Math.abs((newWidth - initialResizeData.startWidth) / initialResizeData.startWidth);
+          const heightScale = Math.abs((newHeight - initialResizeData.startHeight) / initialResizeData.startHeight);
           
-          // Adjust Y position for top handles
+          let scale;
+          if (widthScale > heightScale) {
+            // Width changed more, use width scale
+            scale = newWidth / initialResizeData.startWidth;
+            newHeight = Math.max(20, initialResizeData.startHeight * scale);
+          } else {
+            // Height changed more, use height scale
+            scale = newHeight / initialResizeData.startHeight;
+            newWidth = Math.max(20, initialResizeData.startWidth * scale);
+          }
+          
+          // Adjust position based on resize handle to maintain proper anchoring
           if (resizeHandle === 'ne' || resizeHandle === 'nw') {
             newY = initialResizeData.startPosY + (initialResizeData.startHeight - newHeight);
           }
+          if (resizeHandle === 'nw' || resizeHandle === 'sw') {
+            newX = initialResizeData.startPosX + (initialResizeData.startWidth - newWidth);
+          }
           
-          console.log(`📐 Logo proportional resize: scale=${scale.toFixed(2)}, newSize=${Math.round(newWidth)}x${Math.round(newHeight)}`);
+          // Verify aspect ratio is maintained
+          const newAspectRatio = newWidth / newHeight;
+          const aspectRatioDiff = Math.abs(originalAspectRatio - newAspectRatio);
+          
+          const assetType = isLogo ? 'Logo' : 'Product';
+          console.log(`📐 ${assetType} proportional resize: scale=${scale.toFixed(3)}, newSize=${Math.round(newWidth)}x${Math.round(newHeight)}, ratio=${newAspectRatio.toFixed(3)} (original: ${originalAspectRatio.toFixed(3)})`);
+          
+          if (aspectRatioDiff > 0.01) {
+            console.warn(`⚠️  ${assetType} aspect ratio drift detected: ${aspectRatioDiff.toFixed(4)}`);
+          }
         }
 
         // Apply the resize
@@ -1358,7 +2229,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           {hasUnsavedChanges ? "Guardar Cambios" : "Guardado"}
         </Button>
         {onExit && (
-          <Button onClick={onExit} variant="outline" className="rounded-full">
+          <Button onClick={() => handleExit()} variant="outline" className="rounded-full">
             <X className="w-4 h-4 mr-2" />
             Salir
           </Button>
@@ -1480,6 +2351,12 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
               title="Color personalizado"
           />
           </div>
+          
+          <Separator orientation="vertical" className="h-6" />
+          
+          <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
+            💡 Salto automático cada 14 caracteres
+          </span>
         </div>
       )}
 
@@ -1614,6 +2491,22 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         </div>
       )}
 
+      {/* Product Image Toolbar */}
+      {selectedAsset && selectedAsset.type === 'product' && (
+        <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 bg-green-500 rounded-sm"></div>
+            <span className="text-sm font-medium text-gray-700">Imagen del Producto</span>
+          </div>
+          
+          <Separator orientation="vertical" className="h-6" />
+          
+          <span className="text-sm text-gray-600">
+            Arrastra para mover • Redimensiona proporcionalmente • Alinea con otros elementos
+          </span>
+        </div>
+      )}
+
       {/* Logo Upload Toolbar */}
       {selectedAsset && selectedAsset.type === 'logo' && (
         <div className="bg-white border-b border-gray-200 p-3 flex items-center justify-center space-x-4">
@@ -1718,7 +2611,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                     fontWeight: editingAsset.fontWeight,
                     textAlign: editingAsset.textAlign as any
                   }}
-                  placeholder="Escribe tu texto... (Shift+Enter para nueva línea)"
+                  placeholder="Escribe tu texto... (Se crearán saltos de línea automáticos cada 14 caracteres)"
                 />
               </div>
             )}
@@ -1837,7 +2730,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           <div className="flex items-center space-x-4">
             <span className="flex items-center">
               <div className="w-3 h-3 bg-blue-600 border border-white rounded-full mr-2"></div>
-              {selectedAsset.type === 'logo' 
+              {(selectedAsset.type === 'logo' || selectedAsset.type === 'product')
                 ? 'Arrastra las esquinas azules para redimensionar proporcionalmente' 
                 : 'Arrastra las esquinas azules para redimensionar'}
             </span>

@@ -10,11 +10,11 @@ export interface BannerComposition {
 
 export interface BannerAsset {
   id: string;
-  type: 'logo' | 'text' | 'cta';
+  type: 'logo' | 'text' | 'cta' | 'product';
   position: { x: number; y: number };
   size: { width: number; height: number };
   rotation: number;
-  // For logo assets
+  // For logo and product assets
   imageUrl?: string;
   // For text assets
   text?: string;

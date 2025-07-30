@@ -11,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { usePartners } from '@/hooks/usePartners';
-import { createEnhancedBanner, isEnhancedBannerCreationAvailable, BannerCreationRequest } from '@/lib/enhanced-banner-service';
+import { createEnhancedBanner, isEnhancedBannerCreationAvailable, BannerCreationRequest, getPerformanceInfo, isWebGPUSupported } from '@/lib/enhanced-banner-service';
 import { uploadProductPhoto, getPartnerProductPhotos, removeProductPhoto, ProductPhoto } from '@/lib/product-photos-service';
 import BannerEditor from '@/components/BannerEditor';
 
@@ -224,6 +224,15 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
       return false;
     }
 
+    if (mainText.length > 28) {
+      toast({
+        title: "Título muy largo",
+        description: "El título debe tener máximo 28 caracteres",
+        variant: "destructive"
+      });
+      return false;
+    }
+
     if (!descriptionText.trim()) {
       toast({
         title: "Descripción requerida",
@@ -233,10 +242,28 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
       return false;
     }
 
+    if (descriptionText.length > 28) {
+      toast({
+        title: "Descripción muy larga",
+        description: "La descripción debe tener máximo 28 caracteres",
+        variant: "destructive"
+      });
+      return false;
+    }
+
     if (!ctaText.trim()) {
       toast({
         title: "CTA requerido",
         description: "Por favor ingresa el texto del call-to-action",
+        variant: "destructive"
+      });
+      return false;
+    }
+
+    if (ctaText.length > 14) {
+      toast({
+        title: "CTA muy largo",
+        description: "El CTA debe tener máximo 14 caracteres",
         variant: "destructive"
       });
       return false;
@@ -557,8 +584,15 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
                               <p className="text-xs text-gray-500 mb-4">
                                 Arrastra y suelta una imagen aquí o haz clic para seleccionar
                               </p>
-                              <div className="text-xs text-gray-400">
-                                PNG, JPG hasta 10MB
+                              <div className="text-xs text-gray-400 space-y-1">
+                                <div>PNG, JPG hasta 10MB</div>
+                                <div className="flex items-center justify-center gap-2">
+                                  {isWebGPUSupported() ? (
+                                    <span className="text-green-600 font-medium">⚡ Aceleración GPU disponible</span>
+                                  ) : (
+                                    <span className="text-amber-600">🚀 Procesamiento optimizado</span>
+                                  )}
+                                </div>
                   </div>
                               <input
                                 id="file-input"
@@ -681,7 +715,26 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
               onChange={(e) => setMainText(e.target.value)}
               placeholder="Ingresa el título principal del banner"
               rows={2}
+              maxLength={28}
+              className={`resize-none ${
+                mainText.length >= 28 ? 'border-red-500 focus:border-red-500' :
+                mainText.length >= 24 ? 'border-orange-400 focus:border-orange-400' :
+                'border-gray-300 focus:border-blue-500'
+              }`}
             />
+            <div className={`text-xs text-right flex items-center justify-between ${
+              mainText.length >= 28 ? 'text-red-600' :
+              mainText.length >= 24 ? 'text-orange-600' :
+              'text-gray-500'
+            }`}>
+              {mainText.length >= 28 && (
+                <span className="text-red-600 text-xs">⚠️ Límite alcanzado</span>
+              )}
+              {mainText.length >= 24 && mainText.length < 28 && (
+                <span className="text-orange-600 text-xs">⚠️ Cerca del límite</span>
+              )}
+              <span>{mainText.length}/28</span>
+            </div>
           </div>
 
           {/* Description Text */}
@@ -693,7 +746,26 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
               onChange={(e) => setDescriptionText(e.target.value)}
               placeholder="Ingresa una descripción más detallada"
               rows={2}
+              maxLength={28}
+              className={`resize-none ${
+                descriptionText.length >= 28 ? 'border-red-500 focus:border-red-500' :
+                descriptionText.length >= 24 ? 'border-orange-400 focus:border-orange-400' :
+                'border-gray-300 focus:border-blue-500'
+              }`}
             />
+            <div className={`text-xs text-right flex items-center justify-between ${
+              descriptionText.length >= 28 ? 'text-red-600' :
+              descriptionText.length >= 24 ? 'text-orange-600' :
+              'text-gray-500'
+            }`}>
+              {descriptionText.length >= 28 && (
+                <span className="text-red-600 text-xs">⚠️ Límite alcanzado</span>
+              )}
+              {descriptionText.length >= 24 && descriptionText.length < 28 && (
+                <span className="text-orange-600 text-xs">⚠️ Cerca del límite</span>
+              )}
+              <span>{descriptionText.length}/28</span>
+            </div>
           </div>
 
           {/* CTA Text */}
@@ -703,8 +775,27 @@ const BannerGeneration = ({ preSelectedPartnerId }: BannerGenerationProps) => {
               id="cta-text"
               value={ctaText}
               onChange={(e) => setCtaText(e.target.value)}
-              placeholder="Ej: Comprar ahora, Ver más, Solicitar info"
+              placeholder="Ej: Comprar ahora"
+              maxLength={14}
+              className={`${
+                ctaText.length >= 14 ? 'border-red-500 focus:border-red-500' :
+                ctaText.length >= 12 ? 'border-orange-400 focus:border-orange-400' :
+                'border-gray-300 focus:border-blue-500'
+              }`}
             />
+            <div className={`text-xs text-right flex items-center justify-between ${
+              ctaText.length >= 14 ? 'text-red-600' :
+              ctaText.length >= 12 ? 'text-orange-600' :
+              'text-gray-500'
+            }`}>
+              {ctaText.length >= 14 && (
+                <span className="text-red-600 text-xs">⚠️ Límite alcanzado</span>
+              )}
+              {ctaText.length >= 12 && ctaText.length < 14 && (
+                <span className="text-orange-600 text-xs">⚠️ Cerca del límite</span>
+              )}
+              <span>{ctaText.length}/14</span>
+            </div>
           </div>
 
 
