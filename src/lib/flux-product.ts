@@ -379,7 +379,7 @@ export async function generateProductCutout(
       height: targetDimensions.height,
       prompt_upsampling: false,
       seed: null,
-      safety_tolerance: 2,
+      safety_tolerance: 1,
       output_format: 'png',
       image_prompt: productImageBase64 // Use product image as reference
     };

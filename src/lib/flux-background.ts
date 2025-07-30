@@ -393,7 +393,7 @@ export async function generateBannerBackground(
       height: targetDimensions.height,
       prompt_upsampling: false,
       seed: null,
-      safety_tolerance: 5,
+      safety_tolerance: 3,
       output_format: 'png',
       image_prompt: null // No product image for background generation
     };

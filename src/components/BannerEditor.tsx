@@ -47,13 +47,27 @@ interface BrandGuidelines {
   fontSecondary: string;
 }
 
-// Fixed positioning layout for aligned elements - better centered positioning
-const FIXED_LAYOUT = {
-  logo: { x: 1050, y: 90 }, // Logo positioned more toward center-right for better balance
-  product: { x: 720, y: 60, width: 250, height: 250 }, // Product positioned in center-right area
-  mainText: { x: 250, y: 90, width: 400, height: 50 }, // Title more centered horizontally
-  descriptionText: { x: 250, y: 140, width: 480, height: 40 }, // Description aligned with title
-  ctaButton: { x: 250, y: 230, width: 160, height: 45 }, // CTA button aligned with text elements
+// Dynamic layout configuration based on mirror state  
+const getLayout = (isMirrored: boolean) => {
+  if (isMirrored) {
+    // Mirrored layout: logo left (closer to center), text elements right-aligned (closer to center)
+    return {
+      logo: { x: 200, y: 90 }, // Logo closer to center from left
+      product: { x: 595, y: 51, width: 250, height: 250 }, // Product stays centered
+      mainText: { x: 840, y: 90, width: 400, height: 50 }, // Title closer to center, right-aligned
+      descriptionText: { x: 760, y: 140, width: 480, height: 40 }, // Description closer to center, right-aligned  
+      ctaButton: { x: 1080, y: 230, width: 160, height: 45 }, // CTA button closer to center, right-aligned
+    };
+  } else {
+    // Normal layout: logo right (closer to center), text elements left-aligned (closer to center)
+    return {
+      logo: { x: 950, y: 90 }, // Logo closer to center from right
+      product: { x: 595, y: 51, width: 250, height: 250 }, // Product perfectly centered: (1440-250)/2, (352-250)/2
+      mainText: { x: 200, y: 90, width: 400, height: 50 }, // Title closer to center horizontally
+      descriptionText: { x: 200, y: 140, width: 480, height: 40 }, // Description closer to center
+      ctaButton: { x: 200, y: 230, width: 160, height: 45 }, // CTA button closer to center
+    };
+  }
 };
 
 const BannerEditor: React.FC<BannerEditorProps> = ({
@@ -115,36 +129,117 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   // Window focus state to handle image reloading
   const [windowFocused, setWindowFocused] = useState(true);
   
-  // Helper function for consistent logo sizing: max height 150px, maintain aspect ratio
+  // Layout mirror state - false = normal, true = mirrored
+  const [isMirroredLayout, setIsMirroredLayout] = useState(false);
+  
+  // Enhanced function to detect background brightness and return appropriate text color
+  const getAdaptiveTextColor = useCallback(() => {
+    if (!backgroundImage) return '#0C0908'; // Default dark text
+    
+    // Create a temporary canvas to analyze background brightness
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return '#0C0908';
+    
+    // Use higher resolution for better analysis
+    tempCanvas.width = 200;
+    tempCanvas.height = 200;
+    
+    try {
+      // Draw the background image to analyze
+      tempCtx.drawImage(backgroundImage, 0, 0, 200, 200);
+      
+      // Define strategic sampling areas where text typically appears
+      const textAreas = [
+        { x: 40, y: 40, width: 80, height: 20 },   // Top-left text area
+        { x: 40, y: 70, width: 96, height: 16 },   // Description area
+        { x: 40, y: 120, width: 32, height: 18 },  // CTA area
+        { x: 120, y: 40, width: 60, height: 15 },  // Right side (mirrored)
+        { x: 60, y: 100, width: 80, height: 40 }   // Central area
+      ];
+      
+      let totalWeightedBrightness = 0;
+      let totalWeight = 0;
+      
+      // Analyze each text area with different weights
+      textAreas.forEach((area, index) => {
+        const imageData = tempCtx.getImageData(area.x, area.y, area.width, area.height);
+        const data = imageData.data;
+        
+        let areaBrightness = 0;
+        let pixelCount = 0;
+        
+        // Calculate luminance using improved formula
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i];
+          const g = data[i + 1];
+          const b = data[i + 2];
+          const a = data[i + 3];
+          
+          // Skip transparent pixels
+          if (a < 128) continue;
+          
+          // Use sRGB luminance formula for better accuracy
+          const luminance = 0.2126 * Math.pow(r/255, 2.2) + 
+                           0.7152 * Math.pow(g/255, 2.2) + 
+                           0.0722 * Math.pow(b/255, 2.2);
+          
+          areaBrightness += luminance * 255;
+          pixelCount++;
+        }
+        
+        if (pixelCount > 0) {
+          const avgAreaBrightness = areaBrightness / pixelCount;
+          
+          // Weight main text areas more heavily
+          const weight = index < 3 ? 2.0 : 1.0;
+          
+          totalWeightedBrightness += avgAreaBrightness * weight;
+          totalWeight += weight;
+        }
+      });
+      
+      if (totalWeight === 0) {
+        return '#0C0908'; // Default to dark if no valid pixels
+      }
+      
+      const averageBrightness = totalWeightedBrightness / totalWeight;
+      
+      // Use more sophisticated thresholds for better contrast decisions
+      if (averageBrightness > 140) {
+        return '#0C0908'; // Dark text on light background
+      } else if (averageBrightness < 100) {
+        return '#FAFAFA'; // Light text on dark background  
+      } else {
+        // For medium brightness, check contrast ratio and lean toward dark text
+        return averageBrightness > 120 ? '#0C0908' : '#FAFAFA';
+      }
+      
+    } catch (error) {
+      console.warn('Could not analyze background brightness:', error);
+      return '#0C0908'; // Default to dark text
+    }
+  }, [backgroundImage]);
+
+  // Helper function for logo sizing: ONLY constrain height, calculate width proportionally
   const calculateLogoSize = (naturalWidth: number, naturalHeight: number) => {
     // Validate input dimensions
     if (naturalWidth <= 0 || naturalHeight <= 0) {
       console.warn('Invalid logo dimensions:', naturalWidth, 'x', naturalHeight);
-      return { width: 150, height: 150 }; // fallback square
+      return { width: 100, height: 100 }; // fallback square
     }
     
-    const maxHeight = 100; // Reduced from 150px to make logos smaller
-    let logoWidth = naturalWidth;
-    let logoHeight = naturalHeight;
+    // FIXED HEIGHT - never change this, only scale width proportionally
+    const targetHeight = 75; // Fixed height for all logos
     
-    // Calculate original aspect ratio
+    // Calculate original aspect ratio (width/height)
     const originalAspectRatio = naturalWidth / naturalHeight;
     
-    if (logoHeight > maxHeight) {
-      const scale = maxHeight / logoHeight;
-      logoHeight = maxHeight;
-      logoWidth = naturalWidth * scale; // Use naturalWidth to preserve ratio
-    }
+    // ALWAYS use target height, calculate width proportionally
+    const logoHeight = targetHeight;
+    const logoWidth = targetHeight * originalAspectRatio; // height * aspect ratio = proportional width
     
-    // Verify aspect ratio is maintained
-    const newAspectRatio = logoWidth / logoHeight;
-    const aspectRatioDiff = Math.abs(originalAspectRatio - newAspectRatio);
-    
-    if (aspectRatioDiff > 0.01) { // Allow small floating point differences
-      console.warn(`Aspect ratio not preserved! Original: ${originalAspectRatio.toFixed(3)}, New: ${newAspectRatio.toFixed(3)}`);
-    }
-    
-    console.log(`Logo sizing: ${naturalWidth}x${naturalHeight} (ratio: ${originalAspectRatio.toFixed(3)}) → ${Math.round(logoWidth)}x${Math.round(logoHeight)} (ratio: ${newAspectRatio.toFixed(3)})`);
+    console.log(`✅ Logo proportional sizing: ${naturalWidth}x${naturalHeight} (ratio: ${originalAspectRatio.toFixed(3)}) → ${Math.round(logoWidth)}x${Math.round(logoHeight)}`);
     return { width: logoWidth, height: logoHeight };
   };
 
@@ -219,7 +314,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     };
 
     // Check alignment with other assets
-    const otherAssets = composition.assets.filter(asset => asset.id !== draggedAsset.id);
+    const otherAssets = composition.assets?.filter(asset => asset.id !== draggedAsset.id) ?? [];
     
     for (const asset of otherAssets) {
       const assetBounds = {
@@ -417,7 +512,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         const { width: logoWidth, height: logoHeight } = calculateLogoSize(img.naturalWidth, img.naturalHeight);
         
         // Update or create logo asset with proper dimensions
-      const logoAsset = composition.assets.find(asset => asset.type === 'logo');
+      const logoAsset = composition.assets?.find(asset => asset.type === 'logo');
       if (logoAsset) {
           // Update existing logo with new image and dimensions
           updateComposition(prev => ({
@@ -439,7 +534,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         const newLogoAsset: BannerAsset = {
           id: `logo_${Date.now()}`,
           type: 'logo',
-          position: { x: FIXED_LAYOUT.logo.x, y: FIXED_LAYOUT.logo.y },
+          position: { x: getLayout(isMirroredLayout).logo.x, y: getLayout(isMirroredLayout).logo.y },
             size: { width: logoWidth, height: logoHeight },
           rotation: 0,
           imageUrl: objectUrl
@@ -585,7 +680,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   // Initialize assets with fixed positioning and brand colors (only if no saved composition)
   useEffect(() => {
     // Only initialize if we've attempted to load and there are no assets yet
-    if (!hasAttemptedLoad || !brandGuidelines || composition.assets.length > 0) return;
+    if (!hasAttemptedLoad || !brandGuidelines || (composition.assets?.length ?? 0) > 0) return;
     
     // If we have a bannerId but banner data isn't loaded yet, wait for it
     if (bannerId && isLoadingBanner) {
@@ -601,7 +696,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       initialAssets.push({
         id: `logo_${Date.now()}`,
         type: 'logo',
-        position: { x: FIXED_LAYOUT.logo.x, y: FIXED_LAYOUT.logo.y },
+        position: { x: getLayout(isMirroredLayout).logo.x, y: getLayout(isMirroredLayout).logo.y },
         size: { width: 100, height: 75 }, // Use 4:3 aspect ratio, smaller size
         rotation: 0,
         imageUrl: actualPartnerLogoUrl
@@ -614,8 +709,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       initialAssets.push({
         id: `product_${Date.now()}`,
         type: 'product',
-        position: { x: FIXED_LAYOUT.product.x, y: FIXED_LAYOUT.product.y },
-        size: { width: FIXED_LAYOUT.product.width, height: FIXED_LAYOUT.product.height },
+        position: { x: getLayout(isMirroredLayout).product.x, y: getLayout(isMirroredLayout).product.y },
+        size: { width: getLayout(isMirroredLayout).product.width, height: getLayout(isMirroredLayout).product.height },
         rotation: 0,
         imageUrl: actualProductImageUrl
       });
@@ -626,15 +721,15 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       initialAssets.push({
         id: `text_${Date.now()}`,
         type: 'text',
-        position: { x: FIXED_LAYOUT.mainText.x, y: FIXED_LAYOUT.mainText.y },
-        size: { width: FIXED_LAYOUT.mainText.width, height: FIXED_LAYOUT.mainText.height },
+        position: { x: getLayout(isMirroredLayout).mainText.x, y: getLayout(isMirroredLayout).mainText.y },
+        size: { width: getLayout(isMirroredLayout).mainText.width, height: getLayout(isMirroredLayout).mainText.height },
         rotation: 0,
         text: actualBannerText,
         fontSize: 42, // Larger title font
         fontFamily: 'Cerebi Sans',
-        color: brandGuidelines.mainColor,
+        color: getAdaptiveTextColor(),
         fontWeight: 'bold',
-        textAlign: 'left'
+        textAlign: isMirroredLayout ? 'right' : 'left'
       });
     }
 
@@ -643,15 +738,15 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       initialAssets.push({
         id: `description_${Date.now()}`,
         type: 'text',
-        position: { x: FIXED_LAYOUT.descriptionText.x, y: FIXED_LAYOUT.descriptionText.y },
-        size: { width: FIXED_LAYOUT.descriptionText.width, height: FIXED_LAYOUT.descriptionText.height },
+        position: { x: getLayout(isMirroredLayout).descriptionText.x, y: getLayout(isMirroredLayout).descriptionText.y },
+        size: { width: getLayout(isMirroredLayout).descriptionText.width, height: getLayout(isMirroredLayout).descriptionText.height },
         rotation: 0,
         text: actualDescriptionText,
         fontSize: 36, // Smaller than title, good proportion
         fontFamily: 'Cerebi Sans',
-        color: brandGuidelines.mainColor,
+        color: getAdaptiveTextColor(),
         fontWeight: 'normal',
-        textAlign: 'left'
+        textAlign: isMirroredLayout ? 'right' : 'left'
       });
     }
 
@@ -660,8 +755,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       initialAssets.push({
         id: `cta_${Date.now()}`,
         type: 'cta',
-        position: { x: FIXED_LAYOUT.ctaButton.x, y: FIXED_LAYOUT.ctaButton.y },
-        size: { width: FIXED_LAYOUT.ctaButton.width, height: FIXED_LAYOUT.ctaButton.height },
+        position: { x: getLayout(isMirroredLayout).ctaButton.x, y: getLayout(isMirroredLayout).ctaButton.y },
+        size: { width: getLayout(isMirroredLayout).ctaButton.width, height: getLayout(isMirroredLayout).ctaButton.height },
         rotation: 0,
         text: actualCtaText,
         fontSize: 20, // Appropriate size for CTA button
@@ -688,7 +783,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
       assets: initialAssets,
       lastModified: new Date()
     }));
-  }, [hasAttemptedLoad, bannerId, isLoadingBanner, actualPartnerLogoUrl, actualProductImageUrl, actualBannerText, actualDescriptionText, actualCtaText, brandGuidelines, composition.assets.length]);
+  }, [hasAttemptedLoad, bannerId, isLoadingBanner, actualPartnerLogoUrl, actualProductImageUrl, actualBannerText, actualDescriptionText, actualCtaText, brandGuidelines, composition.assets?.length]);
 
   // Helper function to check if saved composition exists
   const checkForSavedComposition = useCallback(async (): Promise<boolean> => {
@@ -808,14 +903,14 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
 
   // Update existing composition assets with brand colors ONLY if they have default colors
   useEffect(() => {
-    if (hasAttemptedLoad && composition.assets.length > 0 && partnerId) {
+    if (hasAttemptedLoad && (composition.assets?.length ?? 0) > 0 && partnerId) {
       const isDefaultGuidelines = brandGuidelines.mainColor === '#8A47F5' && brandGuidelines.secondaryColor === '#E9DEFF';
       
       // Only update colors if brand guidelines are loaded and assets have default colors
       if (!isDefaultGuidelines) {
         console.log('🎨 Checking if assets need brand color updates:', brandGuidelines);
         
-        const updatedAssets = composition.assets.map(asset => {
+        const updatedAssets = composition.assets?.map(asset => {
           // Only update if asset has default purple colors (indicating it needs brand colors)
           if (asset.type === 'text' && (asset.color === '#000000' || asset.color === '#8A47F5')) {
             console.log(`Updating text asset ${asset.id} color from ${asset.color} to ${brandGuidelines.mainColor}`);
@@ -832,13 +927,13 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
             };
           }
           return asset;
-        });
+        }) ?? [];
         
         // Only update if there are actual changes
         const hasChanges = updatedAssets.some((asset, index) => {
-          const originalAsset = composition.assets[index];
-          return (asset.color !== originalAsset.color) || 
-                 (asset.backgroundColor !== originalAsset.backgroundColor);
+          const originalAsset = composition.assets?.[index];
+          return originalAsset && ((asset.color !== originalAsset.color) || 
+                 (asset.backgroundColor !== originalAsset.backgroundColor));
         });
         
         if (hasChanges) {
@@ -853,7 +948,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         }
       }
     }
-  }, [brandGuidelines, partnerId, hasAttemptedLoad, composition.assets.length]);
+  }, [brandGuidelines, partnerId, hasAttemptedLoad, composition.assets?.length]);
 
 
 
@@ -952,7 +1047,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   useEffect(() => {
     let autoSaveInterval: NodeJS.Timeout;
     
-    if (hasUnsavedChanges && composition.assets.length > 0) {
+    if (hasUnsavedChanges && (composition.assets?.length ?? 0) > 0) {
       console.log('⏰ Starting auto-save timer...');
       autoSaveInterval = setInterval(async () => {
         if (hasUnsavedChanges) {
@@ -972,7 +1067,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         clearInterval(autoSaveInterval);
       }
     };
-  }, [hasUnsavedChanges, composition.assets.length, saveComposition]);
+  }, [hasUnsavedChanges, composition.assets?.length, saveComposition]);
 
   const updateComposition = useCallback((updater: (prev: BannerComposition) => BannerComposition) => {
     setComposition(prev => {
@@ -989,6 +1084,47 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     });
     setHasUnsavedChanges(true);
   }, []);
+
+  // Toggle mirror layout function
+  const toggleMirrorLayout = useCallback(() => {
+    const newMirrorState = !isMirroredLayout;
+    setIsMirroredLayout(newMirrorState);
+    
+    // Update existing assets with new positions and alignments
+    const newLayout = getLayout(newMirrorState);
+    
+    setComposition(prev => ({
+      ...prev,
+      assets: prev.assets.map(asset => {
+        if (asset.type === 'logo') {
+          return {
+            ...asset,
+            position: { x: newLayout.logo.x, y: newLayout.logo.y }
+          };
+        } else if (asset.type === 'text') {
+          // Determine if this is main text or description based on fontSize
+          const isMainText = asset.fontSize === 42;
+          const layoutKey = isMainText ? 'mainText' : 'descriptionText';
+          
+          return {
+            ...asset,
+            position: { x: newLayout[layoutKey].x, y: newLayout[layoutKey].y },
+            textAlign: newMirrorState ? 'right' : 'left'
+          };
+        } else if (asset.type === 'cta') {
+          return {
+            ...asset,
+            position: { x: newLayout.ctaButton.x, y: newLayout.ctaButton.y }
+          };
+        }
+        return asset;
+      }),
+      lastModified: new Date()
+    }));
+    
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true);
+  }, [isMirroredLayout]);
 
   // Handle exit with automatic save
   const handleExit = useCallback(async () => {
@@ -1031,21 +1167,65 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     }
   };
 
+  // Helper function to draw elegant gradient backdrop effect for product images
+  const drawProductBackdrop = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const centerX = width / 2;
+    const centerY = height / 2;
+    const maxRadius = Math.max(width, height) * 1.2; // Larger radius for better fade
+    
+    ctx.save();
+    
+    // Create perfect gradient fade with extended radius for smooth edge transitions
+    const gradientBackdrop = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, maxRadius);
+    
+    // Extended gradient with more color stops for ultra-smooth fade to edges
+    gradientBackdrop.addColorStop(0, 'rgba(255, 255, 255, 0.25)');      // Soft center
+    gradientBackdrop.addColorStop(0.08, 'rgba(255, 255, 255, 0.22)');   // Inner glow
+    gradientBackdrop.addColorStop(0.18, 'rgba(255, 255, 255, 0.16)');   // Strong fade
+    gradientBackdrop.addColorStop(0.32, 'rgba(255, 255, 255, 0.11)');   // Medium fade  
+    gradientBackdrop.addColorStop(0.48, 'rgba(255, 255, 255, 0.07)');   // Gentle transition
+    gradientBackdrop.addColorStop(0.65, 'rgba(255, 255, 255, 0.04)');   // Subtle fade
+    gradientBackdrop.addColorStop(0.78, 'rgba(255, 255, 255, 0.02)');   // Almost gone
+    gradientBackdrop.addColorStop(0.88, 'rgba(255, 255, 255, 0.01)');   // Nearly transparent
+    gradientBackdrop.addColorStop(0.95, 'rgba(255, 255, 255, 0.005)');  // Super subtle
+    gradientBackdrop.addColorStop(1, 'rgba(255, 255, 255, 0)');         // Completely transparent
+    
+    // Draw extended circular gradient that fades beyond the product bounds
+    ctx.fillStyle = gradientBackdrop;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, maxRadius, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Add very subtle depth shadow
+    const depthShadow = ctx.createRadialGradient(centerX, centerY + 8, 0, centerX, centerY + 8, maxRadius * 0.4);
+    depthShadow.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    depthShadow.addColorStop(0.4, 'rgba(0, 0, 0, 0.03)');
+    depthShadow.addColorStop(0.7, 'rgba(0, 0, 0, 0.02)');
+    depthShadow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    
+    ctx.fillStyle = depthShadow;
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY + 8, width * 0.4, height * 0.25, 0, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    ctx.restore();
+  };
+
   // Render canvas
   const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     console.log('🎨 renderCanvas called with:', {
-      assetsCount: composition.assets.length,
-      assets: composition.assets.map(a => ({
+      assetsCount: composition.assets?.length ?? 0,
+      assets: composition.assets?.map(a => ({
         id: a.id,
         type: a.type,
         text: a.text,
         position: a.position,
         size: a.size,
         color: a.color
-      })),
+      })) ?? [],
       backgroundImage: !!backgroundImage,
       productImage: !!productImage,
       logoImage: !!logoImage
@@ -1082,7 +1262,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
     // Product image is now drawn as an asset in the asset loop below
 
     // Draw all assets
-    composition.assets.forEach(asset => {
+    composition.assets?.forEach(asset => {
       if (editingText === asset.id) return;
 
       ctx.save();
@@ -1096,8 +1276,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         ctx.textAlign = asset.textAlign as CanvasTextAlign || 'left';
         ctx.textBaseline = 'middle';
         
-        // Use auto-break function for better text formatting with 14-character limit
-        const lines = autoBreakText(asset.text, 14);
+        // Respect manual line breaks only, no automatic breaking
+        const lines = asset.text.split('\n');
         const lineHeight = asset.fontSize! * 1.2;
         
         lines.forEach((line, index) => {
@@ -1167,8 +1347,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         ctx.textAlign = asset.textAlign as CanvasTextAlign || 'center';
         ctx.textBaseline = 'middle';
         
-        // Use auto-break function for CTA text as well (though it's already limited to 14 chars)
-        const lines = autoBreakText(asset.text, 14);
+        // Respect manual line breaks only for CTA text
+        const lines = asset.text.split('\n');
         const lineHeight = asset.fontSize! * 1.2;
         
         lines.forEach((line, index) => {
@@ -1308,6 +1488,9 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
         ctx.textAlign = 'center';
         ctx.fillText('LOGO', width / 2, height / 2);
       } else if (asset.type === 'product' && productImage) {
+        // Draw subtle backdrop effect behind product
+        drawProductBackdrop(ctx, asset.size.width, asset.size.height);
+        
         // Draw product image
         try {
           ctx.drawImage(productImage, 0, 0, asset.size.width, asset.size.height);
@@ -1392,8 +1575,8 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   // Force re-render when composition assets change (especially important for loaded compositions)
   useEffect(() => {
     console.log('🎨 Composition assets changed, triggering render:', {
-      assetsCount: composition.assets.length,
-      assetTypes: composition.assets.map(a => `${a.type}(${a.text || 'no-text'})`),
+      assetsCount: composition.assets?.length ?? 0,
+      assetTypes: composition.assets?.map(a => `${a.type}(${a.text || 'no-text'})`) ?? [],
       hasLoaded: hasAttemptedLoad
     });
     renderCanvas();
@@ -1613,12 +1796,25 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           let newAssets;
           
           if (existingProductIndex >= 0) {
-            // Update existing product asset
+            // Update existing product asset - preserve position and size if they exist
+            const existingAsset = prev.assets[existingProductIndex];
+            console.log('🔄 Updating existing product asset, preserving position/size:', {
+              existingPosition: existingAsset.position,
+              existingSize: existingAsset.size,
+              newImageUrl: productAsset.imageUrl?.substring(0, 50) + '...'
+            });
+            
             newAssets = prev.assets.map((asset, index) => 
-              index === existingProductIndex ? productAsset : asset
+              index === existingProductIndex ? {
+                ...productAsset,
+                id: existingAsset.id, // Keep existing ID
+                position: existingAsset.position, // Preserve saved position
+                size: existingAsset.size // Preserve saved size
+              } : asset
             );
           } else {
-            // Add new product asset
+            // Add new product asset with calculated position and size
+            console.log('➕ Adding new product asset with calculated position/size');
             newAssets = [...prev.assets, productAsset];
           }
           
@@ -1807,7 +2003,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
   // Update logo asset size to proper dimensions when logo loads (maintain aspect ratio, no 1:1 forcing)
   useEffect(() => {
     if (logoImage) {
-      const logoAsset = composition.assets.find(asset => asset.type === 'logo');
+      const logoAsset = composition.assets?.find(asset => asset.type === 'logo');
       if (logoAsset) {
         console.log('Updating logo to proper proportional size from natural dimensions:', logoImage.naturalWidth, 'x', logoImage.naturalHeight);
         
@@ -2228,6 +2424,13 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
           <Save className="w-4 h-4 mr-2" />
           {hasUnsavedChanges ? "Guardar Cambios" : "Guardado"}
         </Button>
+        
+        <Button onClick={toggleMirrorLayout} variant="outline" className="rounded-full" title="Reorganizar elementos en espejo">
+          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+          </svg>
+          {isMirroredLayout ? "Layout Normal" : "Layout Espejo"}
+        </Button>
         {onExit && (
           <Button onClick={() => handleExit()} variant="outline" className="rounded-full">
             <X className="w-4 h-4 mr-2" />
@@ -2611,7 +2814,7 @@ const BannerEditor: React.FC<BannerEditorProps> = ({
                     fontWeight: editingAsset.fontWeight,
                     textAlign: editingAsset.textAlign as any
                   }}
-                  placeholder="Escribe tu texto... (Se crearán saltos de línea automáticos cada 14 caracteres)"
+                  placeholder="Escribe tu texto... Usa Shift+Enter para saltos de línea manuales o elimina los automáticos editando directamente"
                 />
               </div>
             )}

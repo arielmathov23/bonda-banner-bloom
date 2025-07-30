@@ -697,12 +697,12 @@ Font Secondary,${brandGuidelines.fontSecondary},Secondary font family`;
                 <div className="text-center">
                   <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
                   <p className="text-sm text-gray-600 mb-1">Arrastra el logo aquí</p>
-                  <p className="text-xs text-gray-500 mb-3">PNG • Máx. 5MB</p>
+                  <p className="text-xs text-gray-500 mb-3">PNG, JPG, JPEG • Máx. 5MB</p>
                   <input
                     type="file"
                     id="logo"
                     className="hidden"
-                    accept=".png"
+                    accept=".png,.jpg,.jpeg"
                     onChange={handleLogoUpload}
                   />
                   <Button
