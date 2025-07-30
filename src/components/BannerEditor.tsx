@@ -52,8 +52,8 @@ const getLayout = (isMirrored: boolean) => {
   if (isMirrored) {
     // Mirrored layout: logo left (closer to center), text elements right-aligned (closer to center)
     return {
-      logo: { x: 200, y: 90 }, // Logo closer to center from left
-      product: { x: 595, y: 51, width: 250, height: 250 }, // Product stays centered
+      logo: { x: 300, y: 90 }, // Logo closer to center from left
+      product: { x: 595, y: 50, width: 250, height: 250 }, // Product stays centered
       mainText: { x: 840, y: 90, width: 400, height: 50 }, // Title closer to center, right-aligned
       descriptionText: { x: 760, y: 140, width: 480, height: 40 }, // Description closer to center, right-aligned  
       ctaButton: { x: 1080, y: 230, width: 160, height: 45 }, // CTA button closer to center, right-aligned
@@ -61,11 +61,11 @@ const getLayout = (isMirrored: boolean) => {
   } else {
     // Normal layout: logo right (closer to center), text elements left-aligned (closer to center)
     return {
-      logo: { x: 950, y: 90 }, // Logo closer to center from right
+      logo: { x: 1050, y: 90 }, // Logo closer to center from right
       product: { x: 595, y: 51, width: 250, height: 250 }, // Product perfectly centered: (1440-250)/2, (352-250)/2
-      mainText: { x: 200, y: 90, width: 400, height: 50 }, // Title closer to center horizontally
-      descriptionText: { x: 200, y: 140, width: 480, height: 40 }, // Description closer to center
-      ctaButton: { x: 200, y: 230, width: 160, height: 45 }, // CTA button closer to center
+      mainText: { x: 300, y: 90, width: 400, height: 50 }, // Title closer to center horizontally
+      descriptionText: { x: 300, y: 140, width: 480, height: 40 }, // Description closer to center
+      ctaButton: { x: 300, y: 230, width: 160, height: 45 }, // CTA button closer to center
     };
   }
 };

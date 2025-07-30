@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { analyzeProductImage } from './product-analysis';
-import { generateBannerBackground, generateProductCutout, isFluxFullyConfigured } from './flux-services';
+import { generateBannerBackground } from './flux-background';
+import { generateProductCutout } from './flux-product';
 import { removeProductBackground, validateImageForProcessing, preloadBackgroundRemovalAssets, getPerformanceInfo } from './background-removal';
 import { toast } from '@/hooks/use-toast';
 
